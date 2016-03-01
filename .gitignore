@@ -1,0 +1,8 @@
+*.o
+bin/master_banker_relay
+
+.cproject
+.project
+.pydevproject
+build/
+
