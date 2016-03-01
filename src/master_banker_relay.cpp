@@ -26,31 +26,19 @@
 # endif
 #endif
 
+#include "relay/relay.h"
+
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <glog/logging.h>
+#include <rapidjson/document.h>
 
 // CLI paramters
 DEFINE_int32(http_port, 8989, "Port to listen on with HTTP protocol");
 DEFINE_string(ip, "0.0.0.0", "IP/Hostname to bind to");
-DEFINE_string(carbon_host, "127.0.0.1", "carbon host");
-DEFINE_int32(carbon_port, 2003, "carbon port");
-DEFINE_string(service_name, "http-augmentor",
-             "service name used ad prefix for carbon metrics");
 
-DEFINE_string(redis_host, "127.0.0.1", "redis host");
-DEFINE_int32(redis_port, 6379, "redis port");
-DEFINE_int32(redis_connections, 1, "redis connection pool size");
-
-DEFINE_int32(acs_poll_interval, 2, "agent configuration polling interval");
-
-DEFINE_string(ip_key_prefix, "coso:segment:ip", "redis key prefix for ip segments");
-DEFINE_string(did_key_prefix, "coso:segment:did", "redis key prefix for did segments");
-
-DEFINE_string(ip_augmentor_name, "ip-segment", "name of the ip augmentor");
-DEFINE_string(did_augmentor_name, "did-segment", "name of the did augmentor");
-
-DEFINE_string(augment_path, "/augment", "path for the augmentations");
+DEFINE_string(relay_config, "relay-config.json", "file with the relay configuration");
 
 int
 main(int argc, char **argv)
@@ -81,9 +69,20 @@ main(int argc, char **argv)
     	return 1;
     }
 
-    /* The /augment URI */
-//    evhttp_set_cb(http, FLAGS_augment_path.c_str(),
-//                    COSO::augment_request_cb, (void*)pool);
+    /* open the config file and read it*/
+
+    std::ifstream f(FLAGS_relay_config);
+    std::string str((std::istreambuf_iterator<char>(f)),
+                     std::istreambuf_iterator<char>());
+    f.close();
+
+    rapidjson::Document doc;
+    doc.Parse(str.c_str());
+    /* Create the relay */
+    MTX::Relay rel(doc);
+
+    /* The /v1/accounts URI */
+    evhttp_set_cb(http, "/v1/accounts", rel.request_cb, &rel);
 
     /* Now we tell the evhttp what port to listen on */
     handle = evhttp_bind_socket_with_handle(http,
