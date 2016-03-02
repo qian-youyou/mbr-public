@@ -79,10 +79,10 @@ main(int argc, char **argv)
     rapidjson::Document doc;
     doc.Parse(str.c_str());
     /* Create the relay */
-    MTX::Relay rel(doc);
+    MTX::Relay rel(doc, base);
 
-    /* The /v1/accounts URI */
-    evhttp_set_cb(http, "/v1/accounts", rel.request_cb, &rel);
+    /* The callback */
+    evhttp_set_gencb(http, rel.request_cb, &rel);
 
     /* Now we tell the evhttp what port to listen on */
     handle = evhttp_bind_socket_with_handle(http,

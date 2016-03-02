@@ -1,6 +1,7 @@
 #ifndef __MBR_RELAY_H__
 #define __MBR_RELAY_H__
 #include <boost/function.hpp>
+#include <event2/event.h>
 #include <event2/http.h>
 #include <event2/http_struct.h>
 #include <rapidjson/document.h>
@@ -12,7 +13,7 @@ namespace MTX {
 struct Relay{
 
     // constructor
-    Relay(const rapidjson::Document& conf);
+    Relay(const rapidjson::Document& conf, struct event_base *base);
 
     // destructor
     ~Relay();
@@ -25,9 +26,36 @@ private :
 
     void process_request(struct evhttp_request *req);
 
+    std::string
+    get_command(struct evhttp_request *req);
+
+    std::map<std::string, std::string>
+    get_qs(const std::string& qs);
+
+    std::string
+    get_parent_account(const std::string& account_name);
+
+    unsigned int
+    SDBMHash(const std::string& str);
+
+    std::string
+    get_banker_uri(unsigned int hash);
+
+    std::string
+    get_relay_uri(const std::string& path,
+                  const std::string& cmdtype,
+                  std::map<std::string, std::string>& qs_map);
+
+    // callback for the http relay response
+    static void
+    relay_cb(struct evhttp_request *req, void *arg);
+
+    std::string get_body(struct evbuffer *buf);
+
     typedef std::map<int, std::string> shard_map;
     shard_map shards;
 
+    struct event_base* base;
 };
 
 }
