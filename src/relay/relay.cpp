@@ -42,7 +42,9 @@ MTX::Relay::request_cb(struct evhttp_request *req, void *arg){
 
 void
 MTX::Relay::relay_cb(struct evhttp_request *req, void *arg){
-    //TODO
+    relay_placeholder* p = (relay_placeholder*)arg;
+    p->self->process_relay(req, p->original_req);
+    delete p;
 }
 
 std::string
@@ -109,8 +111,6 @@ MTX::Relay::process_request(struct evhttp_request *req){
         evhttp_send_reply(req, 500, "Error", NULL);
         return;
     }
-    //TODO move
-    evhttp_send_reply(req, 200, "Ok", NULL);
 
     //TODO move this to the relay constructor
     std::vector<std::string> params;
@@ -126,9 +126,12 @@ MTX::Relay::process_request(struct evhttp_request *req){
     struct evhttp_connection* conn =
         evhttp_connection_base_new(base, NULL, "127.0.0.1", 8080);
 
+    relay_placeholder* holder = new relay_placeholder;
+    holder->self = this;
+    holder->original_req = req;
     // create the relay request
     struct evhttp_request *relay_req =
-        evhttp_request_new(relay_cb, this);
+        evhttp_request_new(relay_cb, holder);
 
     // set the headers
     LOG(INFO) << "setting headers : ";
@@ -151,6 +154,23 @@ MTX::Relay::process_request(struct evhttp_request *req){
         evhttp_request_get_command(req), uri.c_str());
 }
 
+void
+MTX::Relay::process_relay(
+        evhttp_request *relay_req, evhttp_request *original_req){
+
+    //copy the relayed request body into the original body
+    struct evbuffer* buf =
+        evhttp_request_get_input_buffer(relay_req);
+    std::string body = get_body(buf);
+    struct evbuffer* req_buf =
+        evhttp_request_get_output_buffer(original_req);
+    evbuffer_add_printf(req_buf, "%s", body.c_str());
+    // send the reply
+    evhttp_send_reply(original_req,
+        evhttp_request_get_response_code(relay_req),
+        "OK",
+        req_buf);
+}
 
 std::string
 MTX::Relay::get_relay_uri(
