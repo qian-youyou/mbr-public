@@ -27,7 +27,8 @@ private :
     void process_request(struct evhttp_request *req);
 
     void process_relay(evhttp_request *relay_req,
-                       evhttp_request *original_req);
+                       evhttp_request *original_req,
+                       evhttp_connection *relay_conn);
 
     std::string
     get_command(struct evhttp_request *req);
@@ -63,6 +64,7 @@ private :
     struct relay_placeholder{
         Relay* self;
         evhttp_request* original_req;
+        evhttp_connection* connection;
     };
 };
 

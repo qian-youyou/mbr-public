@@ -46,7 +46,7 @@ MTX::Relay::request_cb(struct evhttp_request *req, void *arg){
 void
 MTX::Relay::relay_cb(struct evhttp_request *req, void *arg){
     relay_placeholder* p = (relay_placeholder*)arg;
-    p->self->process_relay(req, p->original_req);
+    p->self->process_relay(req, p->original_req, p->connection);
     delete p;
 }
 
@@ -99,6 +99,8 @@ MTX::Relay::process_request(struct evhttp_request *req){
         query = evhttp_uri_get_query(http_uri);
         qs_map = get_qs(query);
     }
+    evhttp_uri_free(http_uri);
+
     std::string cmdtype = get_command(req);
 
     LOG(INFO) << "uri : " << uri;
@@ -129,6 +131,7 @@ MTX::Relay::process_request(struct evhttp_request *req){
     relay_placeholder* holder = new relay_placeholder;
     holder->self = this;
     holder->original_req = req;
+    holder->connection = conn;
     // create the relay request
     struct evhttp_request *relay_req =
         evhttp_request_new(relay_cb, holder);
@@ -156,7 +159,9 @@ MTX::Relay::process_request(struct evhttp_request *req){
 
 void
 MTX::Relay::process_relay(
-        evhttp_request *relay_req, evhttp_request *original_req){
+        evhttp_request *relay_req,
+        evhttp_request *original_req,
+        evhttp_connection *relay_conn){
 
     //copy the relayed request body into the original body
     struct evbuffer* buf =
@@ -165,11 +170,14 @@ MTX::Relay::process_relay(
     struct evbuffer* req_buf =
         evhttp_request_get_output_buffer(original_req);
     evbuffer_add_printf(req_buf, "%s", body.c_str());
+
     // send the reply
     evhttp_send_reply(original_req,
         evhttp_request_get_response_code(relay_req),
         "OK",
         req_buf);
+
+    evhttp_connection_free(relay_conn);
 }
 
 std::pair<std::string, unsigned short>
