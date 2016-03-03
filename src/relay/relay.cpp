@@ -116,15 +116,15 @@ MTX::Relay::process_request(struct evhttp_request *req){
     std::vector<std::string> params;
     boost::split(params, banker_uri, boost::is_any_of(":"));
     short int port = std::atoi(params[1].c_str());
-    std::string host = params[1];
+    std::string host = params[0];
 
     // get the body
     struct evbuffer *buf = evhttp_request_get_input_buffer(req);
     std::string body = get_body(buf);
-
+    LOG(INFO) << "redirecting : " << host << ":" << port;
     // create the connection
     struct evhttp_connection* conn =
-        evhttp_connection_base_new(base, NULL, "127.0.0.1", 8080);
+        evhttp_connection_base_new(base, NULL, host.c_str(), port);
 
     relay_placeholder* holder = new relay_placeholder;
     holder->self = this;
