@@ -190,16 +190,50 @@ MTX::Relay::get_relay_uri(
     boost::split(path_parts, path, boost::is_any_of("/"));
 
     std::string action = path_parts[path_parts.size()-1];
+    if(path_parts.size() == 4 &&
+            path_parts[2] == "accounts"){
+        action = "accounts";
+    }
     LOG(INFO) << "action : " << action;
 
     // get the parent account
     std::string parent;
     if(action == "accounts" && cmdtype == "POST"){
+        // POST /v1/accounts
         parent = get_parent_account(qs_map["accountName"]);
-    }else if(action == "balance" && cmdtype == "POST"){
+    }else if(action == "accounts" && cmdtype == "GET"){
+        // GET /v1/accounts/<accountName>
         parent = get_parent_account(path_parts[3]);
-    }else if(action == "shadow" && cmdtype == "PUT"){
+    }else if((
+            action == "adjustment" ||
+            action == "balance"    ||
+            action == "shadow"     ||
+            action == "budget")
+                && (cmdtype == "POST" || cmdtype == "PUT")){
+        // POST,PUT /v1/accounts/<accountName>/adjustment
+        // POST,PUT /v1/accounts/<accountName>/balance
+        // POST,PUT /v1/accounts/<accountName>/shadow
+        // POST,PUT /v1/accounts/<accountName>/budget
         parent = get_parent_account(path_parts[3]);
+    }else if((
+            action == "children" ||
+            action == "close"    ||
+            action == "subtree"  ||
+            action == "summary")
+                && (cmdtype == "GET")){
+        // GET /v1/accounts/<accountName>/children
+        // GET /v1/accounts/<accountName>/close
+        // GET /v1/accounts/<accountName>/subtree
+        // GET /v1/accounts/<accountName>/summary
+        parent = get_parent_account(path_parts[3]);
+    }else if((
+            path == "/v1/accounts"       ||
+            path == "/v1/activeaccounts" ||
+            path == "/v1/sumary")
+                && (cmdtype == "GET")){
+        parent = "*";
+        // TODO : in this cases we need to shoot every shard,
+        // collect the data and the return it
     }
 
     if(!parent.size()){
