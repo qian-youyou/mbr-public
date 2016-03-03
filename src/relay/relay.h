@@ -41,10 +41,10 @@ private :
     unsigned int
     SDBMHash(const std::string& str);
 
-    std::string
+    std::pair<std::string, unsigned short>
     get_banker_uri(unsigned int hash);
 
-    std::string
+    std::pair<std::string, unsigned short>
     get_relay_uri(const std::string& path,
                   const std::string& cmdtype,
                   std::map<std::string, std::string>& qs_map);
@@ -55,7 +55,7 @@ private :
 
     std::string get_body(struct evbuffer *buf);
 
-    typedef std::map<int, std::string> shard_map;
+    typedef std::map<int, std::pair<std::string, unsigned short>> shard_map;
     shard_map shards;
 
     struct event_base* base;

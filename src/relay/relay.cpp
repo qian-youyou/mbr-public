@@ -26,9 +26,12 @@ MTX::Relay::Relay(const rapidjson::Document& conf, struct event_base *base){
     for(auto it = conf.Begin(); it != conf.End(); ++it){
         const rapidjson::Value& val = *it;
         int shard = val["shard"].GetInt();
-        std::string uri = val["uri"].GetString();
-        LOG(INFO) << "Loading shard " << shard << " : " << uri;
-        shards.insert(std::make_pair(shard, uri));
+        std::string ep = val["endpoint"].GetString();
+        std::vector<std::string> parts;
+        boost::split(parts, ep, boost::is_any_of(":"));
+        LOG(INFO) << "Loading shard " << shard << " : " << ep;
+        shards.insert(std::make_pair(shard,
+            std::make_pair(parts[0], std::atoi(parts[1].c_str()))));
     }
 }
 
@@ -105,26 +108,23 @@ MTX::Relay::process_request(struct evhttp_request *req){
     for(auto it = qs_map.begin(); it != qs_map.end(); ++it)
         LOG(INFO) << "\t" << it->first << " : " << it->second;
 
-    std::string banker_uri = get_relay_uri(path, cmdtype, qs_map);
+    std::pair<std::string, unsigned short> banker_uri =
+        get_relay_uri(path, cmdtype, qs_map);
 
-    if(!banker_uri.size()){
+    if(!banker_uri.first.size()){
         evhttp_send_reply(req, 500, "Error", NULL);
         return;
     }
 
-    //TODO move this to the relay constructor
-    std::vector<std::string> params;
-    boost::split(params, banker_uri, boost::is_any_of(":"));
-    short int port = std::atoi(params[1].c_str());
-    std::string host = params[0];
-
     // get the body
     struct evbuffer *buf = evhttp_request_get_input_buffer(req);
     std::string body = get_body(buf);
-    LOG(INFO) << "redirecting : " << host << ":" << port;
+    LOG(INFO) << "redirecting : " << banker_uri.first
+                        << ":" << banker_uri.second;
     // create the connection
     struct evhttp_connection* conn =
-        evhttp_connection_base_new(base, NULL, host.c_str(), port);
+        evhttp_connection_base_new(base, NULL,
+            banker_uri.first.c_str(), banker_uri.second);
 
     relay_placeholder* holder = new relay_placeholder;
     holder->self = this;
@@ -172,7 +172,7 @@ MTX::Relay::process_relay(
         req_buf);
 }
 
-std::string
+std::pair<std::string, unsigned short>
 MTX::Relay::get_relay_uri(
             const std::string& path,
             const std::string& cmdtype,
@@ -196,16 +196,18 @@ MTX::Relay::get_relay_uri(
 
     if(!parent.size()){
         LOG(ERROR) << "unable to find account name";
-        return "";
+        return std::make_pair<std::string, unsigned short>("",0);
     }
 
     LOG(INFO) << "parent account : " << parent;
     unsigned int hash = SDBMHash(parent);
     LOG(INFO) << "hashed account : " << hash;
 
-    std::string banker_uri = get_banker_uri(hash);
-    LOG(INFO) << "shard uri : " << banker_uri;
-    return banker_uri;
+    std::pair<std::string, unsigned short> banker_ep =
+        get_banker_uri(hash);
+    LOG(INFO) << "shard uri : " <<
+        banker_ep.first << ":" << banker_ep.second;
+    return banker_ep;
 }
 
 std::string
@@ -228,7 +230,7 @@ MTX::Relay::SDBMHash(const std::string& str){
 	return hash;
 }
 
-std::string
+std::pair<std::string, unsigned short>
 MTX::Relay::get_banker_uri(unsigned int hash){
     unsigned int shard = hash % shards.size();
     return shards[shard];
