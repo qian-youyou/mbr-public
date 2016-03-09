@@ -24,7 +24,7 @@ MTX::Relay::Relay(const rapidjson::Document& conf, struct event_base *base){
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     conf.Accept(writer);
-    LOG(INFO) << buffer.GetString();;
+    LOG(INFO) << buffer.GetString();
 
     for(auto it = conf.Begin(); it != conf.End(); ++it){
         const rapidjson::Value& val = *it;
@@ -317,7 +317,14 @@ MTX::Relay::get_parent_account(
 
     // get the parent account
     std::string parent;
-    if(action == "accounts" && cmdtype == "POST"){
+    if((path == "/v1/accounts"       ||
+        path == "/v1/activeaccounts" ||
+        path == "/v1/summary")
+                && (cmdtype == "GET")){
+        parent = "*";
+        // collect the data and the return it
+        LOG(INFO) << "parent * " << parent;
+    }else if(action == "accounts" && cmdtype == "POST"){
         // POST /v1/accounts
         parent = get_parent_account(qs_map["accountName"]);
     }else if(action == "accounts" &&
@@ -347,13 +354,6 @@ MTX::Relay::get_parent_account(
         // GET /v1/accounts/<accountName>/subtree
         // GET /v1/accounts/<accountName>/summary
         parent = get_parent_account(path_parts[3]);
-    }else if((
-            path == "/v1/accounts"       ||
-            path == "/v1/activeaccounts" ||
-            path == "/v1/sumary")
-                && (cmdtype == "GET")){
-        parent = "*";
-        // collect the data and the return it
     }
 
     if(!parent.size())
@@ -429,6 +429,16 @@ MTX::Relay::add_replies(const std::vector<std::string>& bodies){
                 result.PushBack(*it, allocator);
             }
         }
+    }else if(result.IsObject()){
+        for(std::size_t i = 1; i < bodies.size(); ++i){
+            rapidjson::Document tmp;
+            tmp.Parse(bodies[i].c_str());
+            for(auto it = tmp.MemberBegin(); it != tmp.MemberEnd(); ++it){
+                result.AddMember(it->name , it->value , allocator);
+            }
+        }
+    }else{
+        return "";
     }
 
     rapidjson::StringBuffer buffer;
