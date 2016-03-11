@@ -9,9 +9,9 @@ at the same time.
 **Depencies**
 
 * Ubuntu 12.04 / Ubuntu 14.04
-* cmake (Tested with 2.8)
-* gflags <https://github.com/gflags/gflags>
-* glog <https://github.com/google/glog>
+* cmake (Tested with 2.8.15)
+* gflags (latest) <https://github.com/gflags/gflags>
+* glog v0.3.3 <https://github.com/google/glog>
 * libevent2 <http://libevent.org/>
 * boost 1.52 or higher
 
