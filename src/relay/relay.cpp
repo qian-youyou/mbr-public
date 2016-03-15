@@ -243,20 +243,26 @@ MTX::Relay::process_relay(
         evhttp_request *relay_req,
         evhttp_request *original_req,
         evhttp_connection *relay_conn){
-
-    //copy the relayed request body into the original body
-    struct evbuffer* buf =
-        evhttp_request_get_input_buffer(relay_req);
-    std::string body = get_body(buf);
-    struct evbuffer* req_buf =
-        evhttp_request_get_output_buffer(original_req);
-    evbuffer_add_printf(req_buf, "%s", body.c_str());
-
-    // send the reply
-    evhttp_send_reply(original_req,
-        evhttp_request_get_response_code(relay_req),
-        "OK",
-        req_buf);
+    if(relay_req){
+        //copy the relayed request body into the original body
+        struct evbuffer* buf =
+            evhttp_request_get_input_buffer(relay_req);
+        std::string body = get_body(buf);
+        struct evbuffer* req_buf =
+            evhttp_request_get_output_buffer(original_req);
+        evbuffer_add_printf(req_buf, "%s", body.c_str());
+        // send the reply
+        evhttp_send_reply(original_req,
+            evhttp_request_get_response_code(relay_req),
+            "OK",
+            req_buf);
+    }else{
+        LOG(ERROR) << "relay request is NULL";
+        evhttp_send_reply(original_req,
+            500,
+            "Error",
+            NULL);
+    }
 
     evhttp_connection_free(relay_conn);
 }
@@ -419,12 +425,22 @@ MTX::Relay::add_replies(const std::vector<std::string>& bodies){
         return "";
 
     rapidjson::Document result;
-    result.Parse(bodies[0].c_str());
+    try {
+        result.Parse(bodies[0].c_str());
+    }catch(...){
+        LOG(ERROR) << "unableto parse body : " << bodies[0];
+        return "";
+    }
     rapidjson::Document::AllocatorType& allocator = result.GetAllocator();
     if(result.IsArray()){
         for(std::size_t i = 1; i < bodies.size(); ++i){
             rapidjson::Document tmp;
-            tmp.Parse(bodies[i].c_str());
+            try{
+                tmp.Parse(bodies[i].c_str());
+            }catch(...){
+                LOG(ERROR) << "unable to parse body : " << bodies[i];
+                continue;
+            }
             for(auto it = tmp.Begin(); it != tmp.End(); ++it){
                 result.PushBack(*it, allocator);
             }
@@ -432,7 +448,12 @@ MTX::Relay::add_replies(const std::vector<std::string>& bodies){
     }else if(result.IsObject()){
         for(std::size_t i = 1; i < bodies.size(); ++i){
             rapidjson::Document tmp;
-            tmp.Parse(bodies[i].c_str());
+            try{
+                tmp.Parse(bodies[i].c_str());
+            }catch(...){
+                LOG(ERROR) << "unable to parse body : " << bodies[i];
+                continue;
+            }
             for(auto it = tmp.MemberBegin(); it != tmp.MemberEnd(); ++it){
                 result.AddMember(it->name , it->value , allocator);
             }
