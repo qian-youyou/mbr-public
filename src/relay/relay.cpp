@@ -5,6 +5,7 @@
 #include "rapidjson/document.h"
 
 #include <glog/logging.h>
+#include "utils/dlog.h"
 
 #include <event2/event.h>
 #include <event2/http.h>
@@ -114,12 +115,14 @@ MTX::Relay::process_request(struct evhttp_request *req){
 
     std::string cmdtype = get_command(req);
 
-    LOG(INFO) << "uri : " << uri;
-    LOG(INFO) << "path : " << path;
-    LOG(INFO) << "method : " << cmdtype;
-    LOG(INFO) << "query : " << query;
+    DLOGINFO("uri : " << uri);
+    DLOGINFO("path : " << path);
+    DLOGINFO("method : " << cmdtype);
+    DLOGINFO("query : " << query);
+#ifdef VERBOSELOG
     for(auto it = qs_map.begin(); it != qs_map.end(); ++it)
-        LOG(INFO) << "\t" << it->first << " : " << it->second;
+        DLOGINFO("\t" << it->first << " : " << it->second);
+#endif
 
     std::string parent_account =
         get_parent_account(path, cmdtype, qs_map);
@@ -152,8 +155,8 @@ MTX::Relay::single_shoot(
     // get the body
     struct evbuffer *buf = evhttp_request_get_input_buffer(req);
     std::string body = get_body(buf);
-    LOG(INFO) << "redirecting : " << banker_uri.first
-                        << ":" << banker_uri.second;
+    DLOGINFO("redirecting : " << banker_uri.first
+                        << ":" << banker_uri.second);
     // create the connection
     struct evhttp_connection* conn =
         evhttp_connection_base_new(base, NULL,
@@ -168,14 +171,14 @@ MTX::Relay::single_shoot(
         evhttp_request_new(relay_cb, holder);
 
     // set the headers
-    LOG(INFO) << "setting headers : ";
+    DLOGINFO("setting headers : ");
     struct evkeyval *header;
     struct evkeyvalq *headers = evhttp_request_get_input_headers(req);
     for (header = headers->tqh_first; header;
         header = header->next.tqe_next){
         evhttp_add_header(
             relay_req->output_headers, header->key, header->value);
-        LOG(INFO) << "  " << header->key << ":" << header->value;
+        DLOGINFO("  " << header->key << ":" << header->value);
     }
 
     //set the body
@@ -231,8 +234,8 @@ MTX::Relay::multiple_shoot(
         evbuffer_add_printf(relay_buf, "%s", body.c_str());
 
         // shoot
-        LOG(INFO) << "shooting shard " << it->first << " at " <<
-            it->second.first << ":" << it->second.second;
+        DLOGINFO("shooting shard " << it->first << " at " <<
+            it->second.first << ":" << it->second.second);
         evhttp_make_request(conn, relay_req,
             evhttp_request_get_command(req), uri.c_str());
     }
@@ -257,7 +260,7 @@ MTX::Relay::process_relay(
             "OK",
             req_buf);
     }else{
-        LOG(ERROR) << "relay request is NULL";
+        DLOGINFO("relay request is NULL");
         evhttp_send_reply(original_req,
             500,
             "Error",
@@ -287,7 +290,7 @@ MTX::Relay::process_multiple_relay(
 
     // we got all the answers, we can reply now
     std::string result_body = add_replies(holder->bodies);
-    LOG(INFO) << "result_body : " << result_body;
+    DLOGINFO("result_body : " << result_body);
     struct evbuffer* req_buf =
         evhttp_request_get_output_buffer(holder->original_req);
     evbuffer_add_printf(req_buf, "%s", result_body.c_str());
@@ -319,7 +322,7 @@ MTX::Relay::get_parent_account(
             path_parts[2] == "accounts"){
         action = "accounts";
     }
-    LOG(INFO) << "action : " << action;
+    DLOGINFO("action : " << action);
 
     // get the parent account
     std::string parent;
@@ -329,7 +332,7 @@ MTX::Relay::get_parent_account(
                 && (cmdtype == "GET")){
         parent = "*";
         // collect the data and the return it
-        LOG(INFO) << "parent * " << parent;
+        DLOGINFO("parent * " << parent);
     }else if(action == "accounts" && cmdtype == "POST"){
         // POST /v1/accounts
         parent = get_parent_account(qs_map["accountName"]);
@@ -370,14 +373,14 @@ MTX::Relay::get_parent_account(
 std::pair<std::string, unsigned short>
 MTX::Relay::get_relay_uri(const std::string& parent){
 
-    LOG(INFO) << "parent account : " << parent;
+    DLOGINFO("parent account : " << parent);
     unsigned int hash = SDBMHash(parent);
-    LOG(INFO) << "hashed account : " << hash;
+    DLOGINFO("hashed account : " << hash);
 
     std::pair<std::string, unsigned short> banker_ep =
         get_banker_uri(hash);
-    LOG(INFO) << "shard uri : " <<
-        banker_ep.first << ":" << banker_ep.second;
+    DLOGINFO("shard uri : " <<
+        banker_ep.first << ":" << banker_ep.second);
     return banker_ep;
 }
 
