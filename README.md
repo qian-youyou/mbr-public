@@ -43,14 +43,15 @@ mbr/build $ make
 
 you can also run *make install* if you'd like the MBR to be installed system-wide.
 
-In case you want to compile with **a lot** of info log (don't so this on production) run cmake 
-and build like. This is highly recommended when you are testing the MBR and want to see what's 
-going on.
+In case you want to compile with **a lot** of info log (don't do this on production) run cmake 
+and build like this : 
 
 ```
 mbr/build $ cmake .. -DVERBOSELOGHIGH:BOOLEAN=true
 mbr/build $ make
 ```
+**This is highly recommended when you are testing the MBR and want to see what's going on.**
+
 
 ## Configuring the MBR and the MBs
 
