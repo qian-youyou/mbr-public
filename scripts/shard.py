@@ -19,9 +19,9 @@ class Sharder(object):
     def run(self):
         # get all the accounts
         accounts = self.get_existing_accounts()
-        self.push_accounts(accounts)
         if self.delete_from:
             self.clean_from_redis()
+        self.push_accounts(accounts)
 
     def get_existing_accounts(self):
         accounts = []
@@ -36,7 +36,7 @@ class Sharder(object):
     def push_accounts(self, accounts):
         for k,v in accounts:
             shard = self.get_shard(k)
-            print 'pushing banker-%s -> shard %d' % (k, shard)
+            print 'pushing banker-%s -> shard %.2d' % (k, shard)
             if not self.dry_run:
                 self.to_redis[shard].set('banker-%s' % k, v)
                 self.to_redis[shard].sadd('banker:accounts', k)
