@@ -52,6 +52,7 @@ mbr/build $ make
 ```
 **This is highly recommended when you are testing the MBR and want to see what's going on.**
 
+
 ## Configuring the MBR and the MBs
 
 For the sake of clarity will set up the MBs (MB1 and MB2) and a MBR. You can then

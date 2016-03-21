@@ -401,7 +401,7 @@ MTX::Relay::SDBMHash(const std::string& str){
 	for (i = 0; i < len; i++){
 		hash = (str[i]) + (hash << 6) + (hash << 16) - hash;
 	}
-	return hash;
+	return hash & 0x7FFFFFFF;
 }
 
 std::pair<std::string, unsigned short>
