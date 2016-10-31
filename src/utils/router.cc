@@ -1,0 +1,63 @@
+#include "router.h"
+#include "utils/dlog.h"
+#include <boost/algorithm/string.hpp>
+#include <ostream>
+#include <stdexcept>
+
+MTX::Router::Router(){}
+
+MTX::Router::~Router(){}
+
+void MTX::Router::addAsyncRoute(
+        const std::string& method,
+        const std::string& action,
+        MTX::Router::request_async_action f){
+    DLOGINFO("registering action : " << method << " " << action);
+    if(method == "GET")
+        get_actions.insert(std::make_pair(action, f));
+    else if(method == "POST")
+        post_actions.insert(std::make_pair(action, f));
+    else if(method == "PUT")
+        put_actions.insert(std::make_pair(action, f));
+    else{
+        std::string err = "addAsyncRoute:  unknow method ";
+        err += method;
+        throw std::logic_error(err);
+    }
+}
+
+bool MTX::Router::route(
+        const std::string& method,
+        const std::string& path,
+        const std::map<std::string, std::string>& qs,
+        const std::map<std::string, std::string>& headers,
+        const std::string& body){
+    std::vector<std::string> parts;
+    boost::split(parts, path, boost::is_any_of("/"));
+    if(parts.size() < 3){
+        return false;
+    }
+    std::string& action = parts[parts.size()-1];
+    std::string account = "*";
+    if(parts.size() > 3)
+        account = parts[parts.size()-2];
+    std::map<std::string, request_async_action>::const_iterator it;
+    if(method == "GET"){
+        if((it = get_actions.find(action)) == get_actions.end()){
+            return false;
+        }
+    }else if(method == "POST"){
+        if((it = post_actions.find(action)) == post_actions.end()){
+            return false;
+        }
+    }else if(method == "PUT"){
+        if((it = put_actions.find(action)) == put_actions.end()){
+            return false;
+        }
+    }else{
+        return false;
+    }
+    it->second(path, qs, headers, account, body);
+    return true;
+}
+
