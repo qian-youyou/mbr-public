@@ -60,7 +60,8 @@ std::string format(const char * fmt, ...)
         throw;
     }
 }
-
+/*
+FIXME nemi : defined twice in format.cc:62
 std::string vformat(const char * fmt, va_list ap)
 {
     char * mem;
@@ -79,7 +80,7 @@ std::string vformat(const char * fmt, va_list ap)
         throw;
     }
 }
-
+*/
 std::vector<std::string> split(const std::string & str, char c)
 {
     vector<string> result;

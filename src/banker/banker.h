@@ -9,6 +9,7 @@
 #include <map>
 
 #include "utils/router.h"
+#include "account.h"
 
 namespace MTX {
 
@@ -47,6 +48,8 @@ private :
     struct event_base* base;
 
     Router router;
+
+    RTBKIT::Accounts accounts;
 };
 
 }

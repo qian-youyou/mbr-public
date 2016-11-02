@@ -1,3 +1,6 @@
-ADD_LIBRARY( arch simd_vector demangle cpuid simd exception exception_handler backtrace format fslock gpgpu environment_static cpu_info vm info rtti_utils rt)
+include_directories(~/local/include)
+link_directories(~/local/lib)
 
-TARGET_LINK_LIBRARIES( arch ${Boost_LIBRARIES})
+ADD_LIBRARY( arch SHARED simd_vector demangle cpuid simd exception exception_handler backtrace format fslock gpgpu environment_static cpu_info vm info rtti_utils rt)
+
+TARGET_LINK_LIBRARIES( arch boost_system)

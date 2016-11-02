@@ -1,3 +1,6 @@
-ADD_LIBRARY( db compact_size_types nested_archive.cc portable_iarchive.cc portable_oarchive.cc)
+include_directories(~/local/include)
+link_directories(~/local/lib)
+
+ADD_LIBRARY( db SHARED compact_size_types nested_archive portable_iarchive portable_oarchive)
 
 TARGET_LINK_LIBRARIES( db jml_utils)

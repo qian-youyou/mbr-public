@@ -1,5 +1,6 @@
-ADD_LIBRARY(utils router)
+include_directories(~/local/include)
 
-TARGET_LINK_LIBRARIES( utils
-                    ${GLOG_LIBRARY} ${GFLAGS_LIBRARY} ${Boost_LIBRARIES})
+ADD_LIBRARY(utils SHARED router)
+
+TARGET_LINK_LIBRARIES( utils ${GLOG_LIBRARY} ${GFLAGS_LIBRARY})
 
