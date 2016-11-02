@@ -4,5 +4,6 @@ bin/master_banker_relay
 .cproject
 .project
 .pydevproject
+.settings/
 build/
 
