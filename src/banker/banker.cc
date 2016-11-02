@@ -35,10 +35,122 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body){
-        DLOGINFO("adjustment : " << path);
+        DLOGINFO("adjustment : " << path << " -> " << account_name);
     };
+
+    Router::request_async_action balance = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("balance : " << path << " -> " << account_name);
+    };
+
+    Router::request_async_action shadow = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("shadow : " << path << " -> " << account_name);
+    };
+
+
+    Router::request_async_action budget = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("budget : " << path << " -> " << account_name);
+    };
+
+    Router::request_async_action children = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("children : " << path << " -> " << account_name);
+    };
+
+    Router::request_async_action close = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("close : " << path << " -> " << account_name);
+    };
+
+    Router::request_async_action subtree = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("subtree : " << path << " -> " << account_name);
+    };
+
+    Router::request_async_action summary = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("summary : " << path << " -> " << account_name);
+    };
+
+    Router::request_async_action accounts = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("accounts : " << path << " -> " << account_name);
+    };
+
+    Router::request_async_action active_accounts = [](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body){
+        DLOGINFO("active accounts : " << path << " -> " << account_name);
+    };
+
+    // POST,PUT /v1/accounts/<accountName>/adjustment
     router.addAsyncRoute("POST", "adjustment", adjustment);
     router.addAsyncRoute("PUT", "adjustment", adjustment);
+    // POST,PUT /v1/accounts/<accountName>/balance
+    router.addAsyncRoute("POST", "balance", balance);
+    router.addAsyncRoute("PUT", "balance", balance);
+    // POST,PUT /v1/accounts/<accountName>/shadow
+    router.addAsyncRoute("POST", "shadow", shadow);
+    router.addAsyncRoute("PUT", "shadow", shadow);
+    // POST,PUT /v1/accounts/<accountName>/budget
+    router.addAsyncRoute("POST", "budget", budget);
+    router.addAsyncRoute("PUT", "budget", budget);
+
+    // GET /v1/accounts/<accountName>/children
+    router.addAsyncRoute("GET", "children", children);
+    // GET /v1/accounts/<accountName>/close
+    router.addAsyncRoute("GET", "close", close);
+    // GET /v1/accounts/<accountName>/subtree
+    router.addAsyncRoute("GET", "subtree", subtree);
+    // GET /v1/accounts/<accountName>/summary
+    router.addAsyncRoute("GET", "summary", summary);
+
+    // GET  /v1/accounts
+    // GET  /v1/accounts/<accountName>
+    router.addAsyncRoute("GET", "", accounts);
+
+    // GET /v1/activeaccounts
+    router.addAsyncRoute("GET", "activeaccounts", active_accounts);
+    // POST /v1/accounts
+    router.addAsyncRoute("POST", "", accounts);
+    
 }
 
 void

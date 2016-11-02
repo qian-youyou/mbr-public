@@ -8,7 +8,7 @@ namespace MTX {
 
 struct Router{
 
-    Router();
+    Router(const std::string& base_path="/v1/accounts");
 
     ~Router();
 
@@ -41,9 +41,13 @@ struct Router{
 
 private:
 
+    bool check_base_path(const std::string& path);
+
     std::map<std::string, request_async_action> get_actions;
     std::map<std::string, request_async_action> post_actions;
     std::map<std::string, request_async_action> put_actions;
+
+    std::string base_path;
     
 };
 
