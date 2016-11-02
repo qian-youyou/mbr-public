@@ -393,7 +393,7 @@ MTX::Relay::get_connection_pool(const std::string & host, int port, unsigned int
     	MTX::HttpConnectionPool con_pool(this->base, host, port);
     	con_pool.set_requests_before_recycling(FLAGS_mbr_requests_recycling);
     	con_pool.set_upstream_connections(FLAGS_mbr_upstream_connections);
-    	bankers_conn_by_shards.emplace(shard_slot, con_pool);
+    	bankers_conn_by_shards.insert(std::make_pair(shard_slot, con_pool));
     	return bankers_conn_by_shards.at(shard_slot);
     }
     return it->second;
