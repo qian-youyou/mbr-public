@@ -155,8 +155,8 @@ MTX::Relay::single_shoot(
     // get the body
     struct evbuffer *buf = evhttp_request_get_input_buffer(req);
     std::string body = get_body(buf);
-    DLOGINFO("redirecting : " << banker_uri.first
-                        << ":" << banker_uri.second);
+    DLOGINFO("redirecting : " << banker_conn_pool.get_host()
+                        << ":" << banker_conn_pool.get_port());
 
     // Get a connection from the pool
     struct evhttp_connection* conn = banker_conn_pool.get_connection();

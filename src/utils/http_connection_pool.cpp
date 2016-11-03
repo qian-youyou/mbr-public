@@ -80,3 +80,13 @@ set_connection_header(struct evhttp_request * req, struct evhttp_connection * co
 		evhttp_add_header(req->output_headers, "Connection", "keep-alive");
 	}
 }
+
+std::string MTX::HttpConnectionPool::get_host() const
+{
+	return host;
+}
+
+int MTX::HttpConnectionPool::get_port() const
+{
+	return port;
+}

@@ -101,6 +101,10 @@ public:
 	 */
 	void set_upstream_connections(unsigned upstream_connections);
 
+	std::string get_host() const ;
+
+	int get_port() const;
+
 private :
 
 	// Host and port where the pool connection points to.
