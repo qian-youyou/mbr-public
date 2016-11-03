@@ -12,6 +12,7 @@
 #include "soa/types/url.h"
 #include "soa/types/date.h"
 #include "jml/utils/compact_vector.h"
+#include <cmath>
 
 namespace Datacratic {
 
@@ -1096,7 +1097,7 @@ struct DefaultDescription<TaggedFloat>
 
     virtual bool isDefaultTyped(const TaggedFloat * val) const
     {
-        return isnan(val->val);
+        return std::isnan(val->val);
     }
 };
 
