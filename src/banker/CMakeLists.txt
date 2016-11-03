@@ -10,7 +10,7 @@ ADD_LIBRARY(banker_utils SHARED ${BANKER_UTILS_SOURCES})
 
 ADD_LIBRARY(banker SHARED banker)
 
-TARGET_LINK_LIBRARIES( banker utils banker_utils jml_utils types jsoncpp 
+TARGET_LINK_LIBRARIES( banker utils banker_utils jml_utils types jsoncpp services
                     ${GLOG_LIBRARY} ${GFLAGS_LIBRARY} ${Boost_LIBRARIES})
 
 

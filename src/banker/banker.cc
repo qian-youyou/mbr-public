@@ -17,10 +17,13 @@
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
+#include <thread>
 
-MTX::MasterBanker::MasterBanker(struct event_base *base){
+MTX::MasterBanker::MasterBanker(
+            struct event_base *base,
+            std::shared_ptr<Redis::AsyncConnection> r):
+                persisting(false), redis(r){
     LOG(INFO) << "building configuration ...";
-
     this->base = base;
 }
 
@@ -150,6 +153,9 @@ void MTX::MasterBanker::initialize(){
     router.addAsyncRoute("GET", "activeaccounts", active_accounts);
     // POST /v1/accounts
     router.addAsyncRoute("POST", "", accounts);
+
+    //load data from redis
+    load_redis();
     
 }
 
@@ -254,3 +260,34 @@ MTX::MasterBanker::process_request(struct evhttp_request *req){
         evhttp_send_reply(req, 404, "Not Found", NULL);
 }
 
+void
+MTX::MasterBanker::persist(evutil_socket_t fd, short what, void* args){
+    MasterBanker* banker = (MasterBanker*)args;
+    banker->persist_redis();
+}
+
+
+void
+MTX::MasterBanker::persist_redis(){
+    if(!persisting){
+        persisting = true;
+        std::thread t(
+            [&](){
+                try{
+                    DLOGINFO("Persisting to redis");
+                }catch(...){
+                    LOG(ERROR) << "unkown error persisting";
+                }
+                persisting = false;
+            }
+        );
+        t.detach();
+    }else{
+        LOG(WARNING) << "Persisting is taking too long!";
+    }
+}
+
+void
+MTX::MasterBanker::load_redis(){
+
+}

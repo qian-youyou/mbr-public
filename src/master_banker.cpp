@@ -27,6 +27,7 @@
 #endif
 
 #include "banker/banker.h"
+#include "soa/service/redis.h"
 
 #include <iostream>
 #include <sstream>
@@ -37,9 +38,9 @@
 // CLI paramters
 DEFINE_int32(http_port, 7001, "Port to listen on with HTTP protocol");
 DEFINE_string(ip, "0.0.0.0", "IP/Hostname to bind to");
-DEFINE_string(redis_ip, "127.0.0.1", "IP for redis");
-DEFINE_int32(redis_port, 6379, "Port for redis");
-DEFINE_int32(redis_db, 1, "Redis DB number");
+DEFINE_string(redis_uri, "127.0.0.1:6379", "redis host:port");
+DEFINE_int32(redis_db, 0, "Redis DB number");
+DEFINE_int32(redis_dump_interval, 5, "Redis dump interval");
 DEFINE_string(name, "MasterBanker", "Master banker name");
 
 int
@@ -71,8 +72,16 @@ main(int argc, char **argv)
     	return 1;
     }
 
+    auto address = Redis::Address(FLAGS_redis_uri);
+
+    std::shared_ptr<Redis::AsyncConnection> redis;
+    redis = std::make_shared<Redis::AsyncConnection>(FLAGS_redis_uri);
+    if(FLAGS_redis_db != 0)
+        redis->select(FLAGS_redis_db);
+    redis->test();
+
     /* Create the relay */
-    MTX::MasterBanker banker(base);
+    MTX::MasterBanker banker(base, redis);
     banker.initialize();
 
     /* The callback */
@@ -85,6 +94,11 @@ main(int argc, char **argv)
     	LOG(ERROR) << "couldn't bind to port " << port << ". Exiting.";
     	return 1;
     }
+
+    event* e = event_new(base, -1, EV_TIMEOUT | EV_PERSIST,
+                                MTX::MasterBanker::persist, &banker);
+    timeval twoSec = {FLAGS_redis_dump_interval, 0};
+    event_add(e, &twoSec);
 
     LOG(WARNING) << "Listening on " << FLAGS_ip <<
             ":" << FLAGS_http_port << " ...";

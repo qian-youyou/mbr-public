@@ -10,13 +10,15 @@
 
 #include "utils/router.h"
 #include "account.h"
+#include "soa/service/redis.h"
 
 namespace MTX {
 
 struct MasterBanker{
 
     // constructor
-    MasterBanker(struct event_base *base);
+    MasterBanker(struct event_base *base,
+                 std::shared_ptr<Redis::AsyncConnection> redis);
 
     // destructor
     ~MasterBanker();
@@ -28,6 +30,9 @@ struct MasterBanker{
     static void
     request_cb(struct evhttp_request *req, void *arg);
 
+    static void
+    persist(evutil_socket_t fd, short what, void* args);
+
 private :
 
     struct context{
@@ -35,6 +40,10 @@ private :
     };
 
     void process_request(struct evhttp_request *req);
+
+    void persist_redis();
+
+    void load_redis();
 
     std::string
     get_command(struct evhttp_request *req);
@@ -50,6 +59,10 @@ private :
     Router router;
 
     RTBKIT::Accounts accounts;
+
+    bool persisting;
+
+    std::shared_ptr<Redis::AsyncConnection> redis;
 };
 
 }
