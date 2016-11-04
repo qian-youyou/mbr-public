@@ -45,6 +45,11 @@ private :
 
     void load_redis();
 
+    void on_redis_loaded(
+                std::shared_ptr<RTBKIT::Accounts> accounts,
+                int status,
+                const std::string & info);
+
     std::string
     get_command(struct evhttp_request *req);
 
@@ -63,6 +68,12 @@ private :
     bool persisting;
 
     std::shared_ptr<Redis::AsyncConnection> redis;
+
+    enum PersistenceCallbackStatus {
+        SUCCESS,             /* info = "" */
+        PERSISTENCE_ERROR,   /* info = error string */
+        DATA_INCONSISTENCY   /* info = json array of account keys */
+    };
 };
 
 }

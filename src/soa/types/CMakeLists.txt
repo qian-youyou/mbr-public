@@ -13,7 +13,7 @@ SET(VALUE_DESCRIPTION_SOURCES
     json_printing
     periodic_utils_value_descriptions)
 
-ADD_LIBRARY( value_description ${VALUE_DESCRIPTION_SOURCES})
+ADD_LIBRARY( value_description SHARED ${VALUE_DESCRIPTION_SOURCES})
 
 TARGET_LINK_LIBRARIES( value_description arch types
                     ${GLOG_LIBRARY} ${GFLAGS_LIBRARY} ${Boost_LIBRARIES})

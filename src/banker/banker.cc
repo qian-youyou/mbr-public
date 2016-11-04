@@ -18,6 +18,10 @@
 
 #include <algorithm>
 #include <thread>
+#include <memory>
+
+
+const std::string PREFIX = "banker-";
 
 MTX::MasterBanker::MasterBanker(
             struct event_base *base,
@@ -289,5 +293,82 @@ MTX::MasterBanker::persist_redis(){
 
 void
 MTX::MasterBanker::load_redis(){
+    std::shared_ptr<RTBKIT::Accounts> newAccounts;
 
+    Redis::Result result = redis->exec(Redis::SMEMBERS("banker:accounts"));
+    if (!result.ok()) {
+        on_redis_loaded(newAccounts, PERSISTENCE_ERROR, result.error());
+        return;
+    }
+
+    const Redis::Reply & keysReply = result.reply();
+    if (keysReply.type() != Redis:: ARRAY) {
+        on_redis_loaded(newAccounts, DATA_INCONSISTENCY,
+                 "SMEMBERS 'banker:accounts' must return an array");
+        return;
+    }
+
+    newAccounts = std::make_shared<RTBKIT::Accounts>();
+    if (keysReply.length() == 0) {
+        on_redis_loaded(newAccounts, SUCCESS, "");
+        return;
+    }
+
+    Redis::Command fetchCommand(Redis::MGET);
+    std::vector<std::string> keys;
+    for (int i = 0; i < keysReply.length(); i++) {
+        std::string key(keysReply[i].asString());
+        keys.push_back(key);
+        fetchCommand.addArg(PREFIX + key);
+    }
+
+    result = redis->exec(fetchCommand);
+    if (!result.ok()) {
+        on_redis_loaded(newAccounts, PERSISTENCE_ERROR, result.error());
+        return;
+    }
+
+    const Redis::Reply & accountsReply = result.reply();
+    ExcAssert(accountsReply.type() == Redis::ARRAY);
+    for (int i = 0; i < accountsReply.length(); i++) {
+        if (accountsReply[i].type() == Redis::NIL) {
+            on_redis_loaded(newAccounts, DATA_INCONSISTENCY,
+                     "nil key '" + keys[i]
+                     + "' referenced in 'banker:accounts'");
+            return;
+        }
+        Json::Value storageValue = Json::parse(accountsReply[i]);
+        newAccounts->restoreAccount(RTBKIT::AccountKey(keys[i]), storageValue);
+    }
+
+    on_redis_loaded(newAccounts, SUCCESS, "");
 }
+
+void
+MTX::MasterBanker::on_redis_loaded(
+                        std::shared_ptr<RTBKIT::Accounts> newAccounts,
+                        int status,
+                        const std::string & info){
+    if (status == SUCCESS) {
+        //recordHit("load.success");
+        newAccounts->ensureInterAccountConsistency();
+        accounts = *newAccounts;
+        LOG(INFO) << "successfully loaded accounts";
+    }
+    else if (status == DATA_INCONSISTENCY) {
+        //recordHit("load.inconsistencies");
+        /* something is wrong with the backend data types */
+        LOG(ERROR) << "Failed to load accounts, DATA_INCONSISTENCY: " << info;
+    }
+    else if (status == PERSISTENCE_ERROR) {
+        //recordHit("load.error");
+        /* the backend is unavailable */
+        LOG(ERROR) << "Failed to load accounts, backend unavailable: " << info;
+    }
+    else {
+        //recordHit("load.unknown");
+        throw ML::Exception("status code is not handled");
+    }
+}
+
+
