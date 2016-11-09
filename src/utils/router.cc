@@ -33,7 +33,8 @@ bool MTX::Router::route(
         const std::string& path,
         const std::map<std::string, std::string>& qs,
         const std::map<std::string, std::string>& headers,
-        const std::string& body){
+        const std::string& body,
+        std::string& response_body){
 
     std::string action = "";
     std::string account = "*";
@@ -85,7 +86,7 @@ bool MTX::Router::route(
         return false;
     }
 
-    it->second(path, qs, headers, account, body);
+    response_body = it->second(path, qs, headers, account, body);
     return true;
 }
 

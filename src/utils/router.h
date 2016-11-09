@@ -12,7 +12,7 @@ struct Router{
 
     ~Router();
 
-    typedef std::function<void
+    typedef std::function<std::string
                 (const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
@@ -37,7 +37,8 @@ struct Router{
                const std::string& path,
                const std::map<std::string, std::string>& qs,
                const std::map<std::string, std::string>& headers,
-               const std::string& body);
+               const std::string& body,
+               std::string& response_body);
 
 private:
 

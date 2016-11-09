@@ -10,6 +10,7 @@
 
 #include "utils/router.h"
 #include "account.h"
+#include "account_key.h"
 #include "soa/service/redis.h"
 
 namespace MTX {
@@ -74,6 +75,26 @@ private :
         PERSISTENCE_ERROR,   /* info = error string */
         DATA_INCONSISTENCY   /* info = json array of account keys */
     };
+
+    std::string
+    create_error_msg(const std::string& m);
+
+    void
+    reactivatePresentAccounts(const RTBKIT::AccountKey & key);
+
+    inline RTBKIT::AccountType rest_decode(const std::string & param){
+        if (param == "none")
+            return RTBKIT::AT_NONE;
+        else if (param == "budget")
+            return RTBKIT::AT_BUDGET;
+        else if (param == "spend")
+            return RTBKIT::AT_SPEND;
+        else
+            throw std::logic_error(create_error_msg("unknown account type " + param));
+    }
+
+    void restoreAccount(const RTBKIT::AccountKey & key);
+
 };
 
 }

@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <thread>
 #include <memory>
-
+#include <ostream>
 
 const std::string PREFIX = "banker-";
 
@@ -36,13 +36,15 @@ MTX::MasterBanker::~MasterBanker(){
 
 void MTX::MasterBanker::initialize(){
     //register the routes;
+
     Router::request_async_action adjustment = [](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("adjustment : " << path << " -> " << account_name);
+        return "";
     };
 
     Router::request_async_action balance = [](
@@ -50,8 +52,9 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("balance : " << path << " -> " << account_name);
+        return "";
     };
 
     Router::request_async_action shadow = [](
@@ -59,8 +62,9 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("shadow : " << path << " -> " << account_name);
+        return "";
     };
 
 
@@ -69,8 +73,9 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("budget : " << path << " -> " << account_name);
+        return "";
     };
 
     Router::request_async_action children = [](
@@ -78,8 +83,9 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("children : " << path << " -> " << account_name);
+        return "";
     };
 
     Router::request_async_action close = [](
@@ -87,8 +93,9 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("close : " << path << " -> " << account_name);
+        return "";
     };
 
     Router::request_async_action subtree = [](
@@ -96,8 +103,9 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("subtree : " << path << " -> " << account_name);
+        return "";
     };
 
     Router::request_async_action summary = [](
@@ -105,17 +113,55 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("summary : " << path << " -> " << account_name);
+        return "";
     };
 
-    Router::request_async_action accounts = [](
+    Router::request_async_action accounts = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string {
         DLOGINFO("accounts : " << path << " -> " << account_name);
+        if(account_name != "*" && account_name.size()){
+            RTBKIT::Accounts::AccountInfo account =
+                    this->accounts.getAccount(RTBKIT::AccountKey(account_name));
+            return account.toJson().toString();
+        }else if(account_name == "*"){
+            std::vector<RTBKIT::AccountKey> keys =
+                        this->accounts.getAccountKeys();
+            return Datacratic::jsonEncode(keys).toString();
+        }
+        std::string msg = "{\"message\":\"Error getting ";
+        msg += account_name;
+        msg += "\"}";
+        throw std::logic_error(msg);
+    };
+
+    Router::request_async_action create_account = [&](
+                 const std::string& path,
+                 const std::map<std::string, std::string>& qs,
+                 const std::map<std::string, std::string>& headers,
+                 const std::string& account_name,
+                 const std::string& body) -> std::string {
+        // get the qs params
+        std::string acc_name, acc_type;
+        std::map<std::string, std::string>::const_iterator it;
+        if((it = qs.find("accountName")) != qs.end())
+            acc_name = it->second;
+        if((it = qs.find("accountType")) != qs.end())
+            acc_type = it->second;
+        if(!acc_name.size() || !acc_type.size()){
+            std::ostringstream msg;
+            msg << "qs parameters required are accountName and accountType";
+            throw std::logic_error(this->create_error_msg(msg.str()));
+        }
+        RTBKIT::AccountKey k = RTBKIT::AccountKey(acc_name);
+        RTBKIT::AccountType t = this->rest_decode(acc_type);
+        reactivatePresentAccounts(k);
+        return this->accounts.createAccount(k, t).toJson().toString();
     };
 
     Router::request_async_action active_accounts = [](
@@ -123,8 +169,9 @@ void MTX::MasterBanker::initialize(){
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
-                 const std::string& body){
+                 const std::string& body) -> std::string{
         DLOGINFO("active accounts : " << path << " -> " << account_name);
+        return "";
     };
 
     // POST,PUT /v1/accounts/<accountName>/adjustment
@@ -156,7 +203,7 @@ void MTX::MasterBanker::initialize(){
     // GET /v1/activeaccounts
     router.addAsyncRoute("GET", "activeaccounts", active_accounts);
     // POST /v1/accounts
-    router.addAsyncRoute("POST", "", accounts);
+    router.addAsyncRoute("POST", "", create_account);
 
     //load data from redis
     load_redis();
@@ -257,11 +304,33 @@ MTX::MasterBanker::process_request(struct evhttp_request *req){
         DLOGINFO("\t" << it->first << " : " << it->second);
 #endif
 
-    bool ok = router.route(cmdtype, path, qs_map, heads, body);
-    if(ok)
-        evhttp_send_reply(req, 204, "Empty", NULL);
-    else
+    try{
+        std::string response_body;
+        bool ok = router.route(cmdtype, path, qs_map, heads, body, response_body);
+        if(ok){
+            // set the response body
+            struct evbuffer *evb = evbuffer_new();
+            evbuffer_add_printf(evb, "%s", response_body.c_str());
+            evhttp_add_header(evhttp_request_get_output_headers(req),
+                                "Content-Type", "application/json");
+            evhttp_add_header(evhttp_request_get_output_headers(req),
+                                "Connection", "Keep-Alive");
+            evhttp_send_reply(req, 200, "Ok", evb);
+            evbuffer_free(evb);
+        }else
+            evhttp_send_reply(req, 404, "Not Found", NULL);
+    }catch(ML::Exception& e){
         evhttp_send_reply(req, 404, "Not Found", NULL);
+    }catch(std::logic_error& e){
+        struct evbuffer *evb = evbuffer_new();
+        evbuffer_add_printf(evb, "%s", e.what());
+        evhttp_add_header(evhttp_request_get_output_headers(req),
+                            "Content-Type", "application/json");
+        evhttp_send_reply(req, 500, "ERROR", evb);
+        evbuffer_free(evb);
+    }catch(...){
+        evhttp_send_reply(req, 500, "ERROR", NULL);
+    }
 }
 
 void
@@ -370,5 +439,37 @@ MTX::MasterBanker::on_redis_loaded(
         throw ML::Exception("status code is not handled");
     }
 }
+std::string
+MTX::MasterBanker::create_error_msg(const std::string& m){
+    std::string msg = "{\"message\":\"";
+    msg += m;
+    msg += "\"}";
+    return msg;
+}
 
+void
+MTX::MasterBanker::reactivatePresentAccounts(const RTBKIT::AccountKey & key) {
+    std::pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+    if (!presentActive.first) {
+        restoreAccount(key);
+    }
+    else if (presentActive.first && !presentActive.second) {
+        accounts.reactivateAccount(key);
+    }
+}
 
+void
+MTX::MasterBanker::restoreAccount(const RTBKIT::AccountKey & key){
+    //FIXME nemi
+    //Record record(this, "restoreAttempt");
+
+    std::pair<bool, bool> pAndA = accounts.accountPresentAndActive(key);
+    if (pAndA.first && pAndA.second == RTBKIT::Account::CLOSED) {
+        accounts.reactivateAccount(key);
+        //recordHit("reactivated");
+        return;
+    } else if (pAndA.first && pAndA.second == RTBKIT::Account::ACTIVE) {
+        //recordHit("alreadyActive");
+        return;
+    }
+}
