@@ -847,7 +847,6 @@ struct Accounts {
     const Account createAccount(const AccountKey & account,
                                 AccountType type)
     {
-        Guard guard(lock);
         if (account.empty())
             throw ML::Exception("can't create account with empty key");
         return ensureAccount(account, type);
@@ -856,7 +855,6 @@ struct Accounts {
     void restoreAccount(const AccountKey & accountKey,
                         const Json::Value & jsonValue,
                         bool overwrite = false) {
-        Guard guard(lock);
 
         // if (accounts.count(accountKey) != 0 and !overwrite) {
         //     throw ML::Exception("an account already exists with that name");
@@ -885,7 +883,6 @@ struct Accounts {
 
     void reactivateAccount(const AccountKey & accountKey)
     {
-        Guard guard(lock);
         AccountKey parents = accountKey;
         while (!parents.empty()) {
             getAccountImpl(parents).status = Account::ACTIVE;
@@ -896,7 +893,6 @@ struct Accounts {
 
     const Account createBudgetAccount(const AccountKey & account)
     {
-        Guard guard(lock);
         if (account.empty())
             throw ML::Exception("can't create account with empty key");
         return ensureAccount(account, AT_BUDGET);
@@ -904,7 +900,6 @@ struct Accounts {
 
     const Account createSpendAccount(const AccountKey & account)
     {
-        Guard guard(lock);
         if (account.size() < 2)
             throw ML::Exception("commitment account must have parent");
         return ensureAccount(account, AT_SPEND);
@@ -912,13 +907,11 @@ struct Accounts {
 
     const AccountInfo getAccount(const AccountKey & account) const
     {
-        Guard guard(lock);
         return getAccountImpl(account);
     }
 
     std::pair<bool, bool> accountPresentAndActive(const AccountKey & account) const
     {
-        Guard guard(lock);
         return accountPresentAndActiveImpl(account);
     }
     
@@ -928,13 +921,11 @@ struct Accounts {
     */
     const Account closeAccount(const AccountKey & account)
     {
-        Guard guard(lock);
         return closeAccountImpl(account);
     }
 
     void checkInvariants() const
     {
-        Guard guard(lock);
         for (auto & a: accounts) {
             a.second.checkInvariants();
         }
@@ -944,7 +935,6 @@ struct Accounts {
     {
         Json::Value result(Json::objectValue);
 
-        Guard guard(lock);
         for (auto & a: accounts) {
             result[a.first.toString()] = a.second.toJson();
         }
@@ -966,7 +956,6 @@ struct Accounts {
         using namespace std;
         //cerr << "setBudget with newBudget " << newBudget << endl;
 
-        Guard guard(lock);
         if (topLevelAccount.size() != 1)
             throw ML::Exception("can't setBudget except at top level");
         auto & a = ensureAccount(topLevelAccount, AT_BUDGET);
@@ -984,8 +973,6 @@ struct Accounts {
                              CurrencyPool amount,
                              AccountType typeToCreate)
     {
-        Guard guard(lock);
-
         if (typeToCreate != AT_NONE && !accounts.count(account)) {
             auto & a = ensureAccount(account, typeToCreate);
             a.setBalance(getParentAccount(account), amount);
@@ -1009,7 +996,6 @@ struct Accounts {
 
     const CurrencyPool getBalance(const AccountKey & account) const
     {
-        Guard guard(lock);
         auto it = accounts.find(account);
         if (it == accounts.end())
             return CurrencyPool();
@@ -1019,8 +1005,6 @@ struct Accounts {
     const Account addAdjustment(const AccountKey & account,
                                 CurrencyPool amount)
     {
-        Guard guard(lock);
-
         auto & a = getAccountImpl(account);
         a.addAdjustment(amount);
 
@@ -1039,14 +1023,12 @@ struct Accounts {
 
     void recuperate(const AccountKey & account)
     {
-        Guard guard(lock);
         getAccountImpl(account).recuperateTo(getParentAccount(account));
     }
 
     AccountSummary getAccountSummary(const AccountKey & account,
                                      int maxDepth = -1) const
     {
-        Guard guard(lock);
         return getAccountSummaryImpl(account, 0, maxDepth);
     }
 
@@ -1054,8 +1036,6 @@ struct Accounts {
     getAccountSummariesJson(bool simplified = false, int maxDepth = -1)
         const
     {
-        Guard guard(lock);
-
         Json::Value summaries;
 
         for (const auto & it: accounts) {
@@ -1070,7 +1050,6 @@ struct Accounts {
     const Account importSpend(const AccountKey & account,
                               const CurrencyPool & amount)
     {
-        Guard guard(lock);
         auto & a = getAccountImpl(account);
         a.importSpend(amount);
         return a;
@@ -1091,8 +1070,6 @@ struct Accounts {
     const Account syncFromShadow(const AccountKey & account,
                                  const ShadowAccount & shadow)
     {
-        Guard guard(lock);
-
         // In the case that an account was added and the banker crashed
         // before it could be written to persistent storage, we need to
         // create the empty account here.
@@ -1107,15 +1084,11 @@ struct Accounts {
        backend */
     void markAccountOutOfSync(const AccountKey & account)
     {
-        Guard guard(lock);
-
         outOfSyncAccounts.insert(account);
     }
 
     bool isAccountOutOfSync(const AccountKey & account) const
-    {
-        Guard guard(lock);
-        
+    {        
         return (outOfSyncAccounts.count(account) > 0);
     }
 
@@ -1129,8 +1102,6 @@ struct Accounts {
     void ensureInterAccountConsistency();
     bool isAccountInconsistent(const AccountKey & account) const
     {
-        Guard guard(lock);
-        
         return (inconsistentAccounts.count(account) > 0);
     }
 
@@ -1150,10 +1121,6 @@ struct Accounts {
 private:
     friend class ShadowAccounts;
 
-    typedef ML::Spinlock Lock;
-    typedef std::unique_lock<Lock> Guard;
-    mutable Lock lock;
-
     typedef std::map<AccountKey, AccountInfo> AccountMap;
     AccountMap accounts;
 
@@ -1166,8 +1133,6 @@ public:
     getAccountKeys(const AccountKey & prefix = AccountKey(),
                    int maxDepth = -1) const
     {
-        Guard guard(lock);
-
         std::vector<AccountKey> result;
 
         for (auto it = accounts.lower_bound(prefix);
@@ -1183,8 +1148,6 @@ public:
                                              const Account &)>
                    & onAccount) const
     {
-        Guard guard(lock);
-        
         for (auto & a: accounts) {
             onAccount(a.first, a.second);
         }
@@ -1192,13 +1155,11 @@ public:
                         
     size_t size() const
     {
-        Guard guard(lock);
         return accounts.size();
     }
 
     bool empty() const
     {
-        Guard guard(lock);
         return accounts.empty();
     }
 
@@ -1206,8 +1167,6 @@ public:
     Accounts getAccounts(const AccountKey & root, int maxDepth = 0)
     {
         Accounts result;
-        Guard guard(lock);
-
         std::function<void (const AccountKey &, int, int)> doAccount
             = [&] (const AccountKey & key, int depth, int maxDepth)
             {
@@ -1382,14 +1341,12 @@ struct ShadowAccounts {
     
     const ShadowAccount activateAccount(const AccountKey & account)
     {
-        Guard guard(lock);
         return getAccountImpl(account);
     }
 
     const ShadowAccount syncFromMaster(const AccountKey & account,
                                        const Account & master)
     {
-        Guard guard(lock);
         auto & a = getAccountImpl(account);
         ExcAssert(!a.uninitialized);
         a.syncFromMaster(master);
@@ -1403,7 +1360,6 @@ struct ShadowAccounts {
     initializeAndMergeState(const AccountKey & account,
                             const Account & master)
     {
-        Guard guard(lock);
         auto & a = getAccountImpl(account);
         ExcAssert(a.uninitialized);
         a.initializeAndMergeState(master);
@@ -1413,7 +1369,6 @@ struct ShadowAccounts {
 
     void checkInvariants() const
     {
-        Guard guard(lock);
         for (auto & a: accounts) {
             a.second.checkInvariants();
         }
@@ -1421,20 +1376,16 @@ struct ShadowAccounts {
 
     const ShadowAccount getAccount(const AccountKey & accountKey) const
     {
-        Guard guard(lock);
         return getAccountImpl(accountKey);
     }
 
     bool accountExists(const AccountKey & accountKey) const
     {
-        Guard guard(lock);
         return accounts.count(accountKey);
     }
 
     bool createAccountAtomic(const AccountKey & accountKey)
     {
-    	Guard guard(lock);
-
     	AccountEntry & account = getAccountImpl(accountKey, false /* call onCreate */);
     	bool result = account.first;
 
@@ -1450,18 +1401,12 @@ struct ShadowAccounts {
 
     void syncTo(Accounts & master) const
     {
-        Guard guard1(lock);
-        Guard guard2(master.lock);
-
         for (auto & a: accounts)
             a.second.syncToMaster(master.getAccountImpl(a.first));
     }
 
     void syncFrom(const Accounts & master)
     {
-        Guard guard1(lock);
-        Guard guard2(master.lock);
-
         for (auto & a: accounts) {
             a.second.syncFromMaster(master.getAccountImpl(a.first));
             if (master.outOfSyncAccounts.count(a.first) > 0) {
@@ -1472,9 +1417,6 @@ struct ShadowAccounts {
 
     void sync(Accounts & master)
     {
-        Guard guard1(lock);
-        Guard guard2(master.lock);
-
         for (auto & a: accounts) {
             a.second.syncToMaster(master.getAccountImpl(a.first));
             a.second.syncFromMaster(master.getAccountImpl(a.first));
@@ -1483,13 +1425,11 @@ struct ShadowAccounts {
 
     bool isInitialized(const AccountKey & accountKey) const
     {
-        Guard guard(lock);
         return !getAccountImpl(accountKey).uninitialized;
     }
 
     bool isStalled(const AccountKey & accountKey) const
     {
-        Guard guard(lock);
         auto & account = getAccountImpl(accountKey);
         return account.uninitialized && account.requested.minutesUntil(Date::now()) >= 1.0;
     }
@@ -1497,7 +1437,6 @@ struct ShadowAccounts {
     void reinitializeStalledAccount(const AccountKey & accountKey)
     {
         ExcAssert(isStalled(accountKey));
-        Guard guard(lock);
         auto & account = getAccountImpl(accountKey);
         account.first = true;
         account.requested = Date::now();
@@ -1511,7 +1450,6 @@ struct ShadowAccounts {
                       const std::string & item,
                       Amount amount)
     {
-        Guard guard(lock);
         return (outOfSyncAccounts.count(accountKey) == 0
                 && getAccountImpl(accountKey).authorizeBid(item, amount));
     }
@@ -1521,14 +1459,12 @@ struct ShadowAccounts {
                    Amount amountPaid,
                    const LineItems & lineItems)
     {
-        Guard guard(lock);
         return getAccountImpl(accountKey).commitBid(item, amountPaid, lineItems);
     }
 
     void cancelBid(const AccountKey & accountKey,
                    const std::string & item)
     {
-        Guard guard(lock);
         return getAccountImpl(accountKey).cancelBid(item);
     }
     
@@ -1536,7 +1472,6 @@ struct ShadowAccounts {
                      Amount amountPaid,
                      const LineItems & lineItems)
     {
-        Guard guard(lock);
         return getAccountImpl(accountKey).forceWinBid(amountPaid, lineItems);
     }
 
@@ -1546,7 +1481,6 @@ struct ShadowAccounts {
                            Amount amountPaid,
                            const LineItems & lineItems)
     {
-        Guard guard(lock);
         return getAccountImpl(accountKey)
             .commitDetachedBid(amountAuthorized, amountPaid, lineItems);
     }
@@ -1554,14 +1488,12 @@ struct ShadowAccounts {
     /// Commit a specific currency (amountToCommit)
     void commitEvent(const AccountKey & accountKey, const Amount & amountToCommit)
     {
-        Guard guard(lock);
         return getAccountImpl(accountKey).commitEvent(amountToCommit);
     }
 
     Amount detachBid(const AccountKey & accountKey,
                      const std::string & item)
     {
-        Guard guard(lock);
         return getAccountImpl(accountKey).detachBid(item);
     }
 
@@ -1569,7 +1501,6 @@ struct ShadowAccounts {
                    const std::string & item,
                    Amount amountAuthorized)
     {
-        Guard guard(lock);
         getAccountImpl(accountKey).attachBid(item, amountAuthorized);
     }
 
@@ -1620,10 +1551,6 @@ private:
         return it->second;
     }
 
-    typedef ML::Spinlock Lock;
-    typedef std::unique_lock<Lock> Guard;
-    mutable Lock lock;
-
     typedef std::map<AccountKey, AccountEntry> AccountMap;
     AccountMap accounts;
 
@@ -1634,7 +1561,6 @@ public:
     std::vector<AccountKey>
     getAccountKeys(const AccountKey & prefix = AccountKey()) const
     {
-        Guard guard(lock);
 
         std::vector<AccountKey> result;
 
@@ -1650,8 +1576,6 @@ public:
                                              const ShadowAccount &)> &
                    onAccount) const
     {
-        Guard guard(lock);
-        
         for (auto & a: accounts) {
             onAccount(a.first, a.second);
         }
@@ -1661,8 +1585,6 @@ public:
     forEachInitializedAndActiveAccount(const std::function<void (const AccountKey &,
                                                         const ShadowAccount &)> & onAccount)
     {
-        Guard guard(lock);
-        
         for (auto & a: accounts) {
             if (a.second.uninitialized || a.second.status == Account::CLOSED)
                 continue;
@@ -1672,13 +1594,11 @@ public:
 
     size_t size() const
     {
-        Guard guard(lock);
         return accounts.size();
     }
 
     bool empty() const
     {
-        Guard guard(lock);
         return accounts.empty();
     }
 };

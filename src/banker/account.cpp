@@ -353,8 +353,6 @@ void
 ShadowAccounts::
 logBidEvents()
 {
-    Guard guard(lock);
-
     uint32_t attachedBids(0), detachedBids(0), commitments(0), expired(0);
 
     for (auto & it: accounts) {
@@ -386,8 +384,6 @@ void
 Accounts::
 ensureInterAccountConsistency()
 {
-    Guard guard(lock);
-
     for (const auto & it: accounts) {
         if (it.first.size() == 1) {
             if (!checkBudgetConsistencyImpl(it.first, -1, 0)) {
@@ -416,8 +412,6 @@ Accounts::
 checkBudgetConsistency(const AccountKey & accountKey, int maxRecursion)
     const
 {
-    Guard guard(lock);
-
     ExcAssertEqual(accountKey.size(), 1);
 
     return checkBudgetConsistencyImpl(accountKey, maxRecursion, 0);
