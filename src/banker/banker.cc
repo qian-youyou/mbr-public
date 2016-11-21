@@ -57,65 +57,120 @@ void MTX::MasterBanker::initialize(){
         return "";
     };
 
-    Router::request_async_action shadow = [](
+    Router::request_async_action shadow = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("shadow : " << path << " -> " << account_name);
-        return "";
+        RTBKIT::AccountKey key(account_name);
+        Json::Value s_acc = Json::parse(body);
+        RTBKIT::ShadowAccount sacc = RTBKIT::ShadowAccount::fromJson(s_acc);
+        /*
+        FIXME
+        Record record(this, "syncFromShadow");
+        */
+        // ignore if account is closed.
+        std::pair<bool, bool> presentActive =
+                this->accounts.accountPresentAndActive(key);
+        if (presentActive.first && !presentActive.second)
+            return this->accounts.getAccount(key).toJson().toString();
+        return this->accounts.syncFromShadow(key, sacc).toJson().toString();
     };
 
 
-    Router::request_async_action budget = [](
+    Router::request_async_action budget = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("budget : " << path << " -> " << account_name);
-        return "";
+        RTBKIT::AccountKey key(account_name);
+        RTBKIT::CurrencyPool budget;
+        Json::Value v = Json::parse(body);
+        RTBKIT::Amount a("USD/1M", v["USD/1M"].asInt());
+        RTBKIT::CurrencyPool newBudget(a);
+        reactivatePresentAccounts(key);
+        return accounts.setBudget(key, newBudget).toJson().toString();
     };
 
-    Router::request_async_action children = [](
+    Router::request_async_action children = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("children : " << path << " -> " << account_name);
-        return "";
+        RTBKIT::AccountKey key(account_name);
+        int depth = 0;
+        std::map<std::string, std::string>::const_iterator it;
+        if((it = qs.find("depth")) != qs.end())
+            depth = atoi(it->second.c_str());
+        std::vector<RTBKIT::AccountKey> keys;
+        keys = this->accounts.getAccountKeys(key, depth);
+        return Datacratic::jsonEncode(keys).toString();
     };
 
-    Router::request_async_action close = [](
+    Router::request_async_action close = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("close : " << path << " -> " << account_name);
-        return "";
+        //FIXME nemi
+        //Record record(this, "closeAccount");
+        RTBKIT::AccountKey key(account_name);
+        this->reactivatePresentAccounts(key);
+        auto account = this->accounts.closeAccount(key);
+        if (account.status == RTBKIT::Account::CLOSED)
+            return "{\"message\":\"account was closed\"}";
+        else{
+            std::ostringstream msg;
+            msg << "account could not be closed";
+            throw std::logic_error(this->create_error_msg(msg.str()));
+        }
     };
 
-    Router::request_async_action subtree = [](
+    Router::request_async_action subtree = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("subtree : " << path << " -> " << account_name);
-        return "";
+        RTBKIT::AccountKey key(account_name);
+        int depth = 0;
+        std::map<std::string, std::string>::const_iterator it;
+        if((it = qs.find("depth")) != qs.end())
+            depth = atoi(it->second.c_str());
+        RTBKIT::Accounts accs = this->accounts.getAccounts(key, depth);
+        return accs.toJson().toString();
     };
 
-    Router::request_async_action summary = [](
+    Router::request_async_action summary = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("summary : " << path << " -> " << account_name);
-        return "";
+        if(account_name != "*" && account_name.size()){
+            RTBKIT::AccountKey key(account_name);
+            RTBKIT::AccountSummary s = this->accounts.getAccountSummary(key);
+            return s.toJson().toString();
+        }else if(account_name == "*"){
+            int depth = 3;
+            std::map<std::string, std::string>::const_iterator it;
+            if((it = qs.find("depth")) != qs.end())
+                depth = atoi(it->second.c_str());
+            return accounts.getAccountSummariesJson(true, depth).toString();
+        }
+        std::ostringstream msg;
+        msg << "error getting " << account_name;
+        throw std::logic_error(this->create_error_msg(msg.str()));
     };
 
     Router::request_async_action accounts = [&](
@@ -164,14 +219,21 @@ void MTX::MasterBanker::initialize(){
         return this->accounts.createAccount(k, t).toJson().toString();
     };
 
-    Router::request_async_action active_accounts = [](
+    Router::request_async_action active_accounts = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("active accounts : " << path << " -> " << account_name);
-        return "";
+        std::vector<RTBKIT::AccountKey> activeAccounts;
+        auto addActive =
+            [&activeAccounts] (const RTBKIT::AccountKey & ak, const RTBKIT::Account & a) {
+                if (a.status == RTBKIT::Account::ACTIVE)
+                    activeAccounts.push_back(ak);
+            };
+        this->accounts.forEachAccount(addActive);
+        return Datacratic::jsonEncode(activeAccounts).toString();
     };
 
     // POST,PUT /v1/accounts/<accountName>/adjustment
