@@ -37,24 +37,45 @@ MTX::MasterBanker::~MasterBanker(){
 void MTX::MasterBanker::initialize(){
     //register the routes;
 
-    Router::request_async_action adjustment = [](
+    Router::request_async_action adjustment = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("adjustment : " << path << " -> " << account_name);
-        return "";
+        RTBKIT::AccountKey key(account_name);
+        Json::Value v = Json::parse(body);
+        RTBKIT::Amount a("USD/1M", v["USD/1M"].asInt());
+        RTBKIT::CurrencyPool amount(a);
+        this->reactivatePresentAccounts(key);
+        return this->accounts.addAdjustment(key, amount).toJson().toString();
     };
 
-    Router::request_async_action balance = [](
+    Router::request_async_action balance = [&](
                  const std::string& path,
                  const std::map<std::string, std::string>& qs,
                  const std::map<std::string, std::string>& headers,
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("balance : " << path << " -> " << account_name);
-        return "";
+        RTBKIT::AccountKey key(account_name);
+        Json::Value v = Json::parse(body);
+        RTBKIT::Amount a("USD/1M", v["USD/1M"].asInt());
+        RTBKIT::CurrencyPool newBalance(a);
+        
+        std::string acc_type;
+        std::map<std::string, std::string>::const_iterator it;
+        if((it = qs.find("accountType")) != qs.end())
+            acc_type = it->second;
+        if(!acc_type.size()){
+            std::ostringstream msg;
+            msg << "qs parameters required are accountType";
+            throw std::logic_error(this->create_error_msg(msg.str()));
+        }
+        RTBKIT::AccountType t = this->rest_decode(acc_type);
+        this->reactivatePresentAccounts(key);
+        return this->accounts.setBalance(key, newBalance, t).toJson().toString();
     };
 
     Router::request_async_action shadow = [&](
