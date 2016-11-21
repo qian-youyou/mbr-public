@@ -25,10 +25,12 @@ const std::string PREFIX = "banker-";
 
 MTX::MasterBanker::MasterBanker(
             struct event_base *base,
-            std::shared_ptr<Redis::AsyncConnection> r):
+            std::shared_ptr<Redis::AsyncConnection> r,
+            std::shared_ptr<CarbonLogger> logger):
                 persisting(false), redis(r){
     LOG(INFO) << "building configuration ...";
     this->base = base;
+    this->clog = logger;
 }
 
 MTX::MasterBanker::~MasterBanker(){
@@ -88,10 +90,7 @@ void MTX::MasterBanker::initialize(){
         RTBKIT::AccountKey key(account_name);
         Json::Value s_acc = Json::parse(body);
         RTBKIT::ShadowAccount sacc = RTBKIT::ShadowAccount::fromJson(s_acc);
-        /*
-        FIXME
-        Record record(this, "syncFromShadow");
-        */
+        LOG_HIT(clog, "syncFromShadow");
         // ignore if account is closed.
         std::pair<bool, bool> presentActive =
                 this->accounts.accountPresentAndActive(key);
@@ -141,8 +140,7 @@ void MTX::MasterBanker::initialize(){
                  const std::string& account_name,
                  const std::string& body) -> std::string{
         DLOGINFO("close : " << path << " -> " << account_name);
-        //FIXME nemi
-        //Record record(this, "closeAccount");
+        LOG_HIT(clog, "closeAccount");
         RTBKIT::AccountKey key(account_name);
         this->reactivatePresentAccounts(key);
         auto account = this->accounts.closeAccount(key);
@@ -502,23 +500,23 @@ MTX::MasterBanker::on_redis_loaded(
                         int status,
                         const std::string & info){
     if (status == SUCCESS) {
-        //recordHit("load.success");
+        LOG_HIT(clog, "load.success");
         newAccounts->ensureInterAccountConsistency();
         accounts = *newAccounts;
         LOG(INFO) << "successfully loaded accounts";
     }
     else if (status == DATA_INCONSISTENCY) {
-        //recordHit("load.inconsistencies");
+        LOG_HIT(clog, "load.inconsistencies");
         /* something is wrong with the backend data types */
         LOG(ERROR) << "Failed to load accounts, DATA_INCONSISTENCY: " << info;
     }
     else if (status == PERSISTENCE_ERROR) {
-        //recordHit("load.error");
+        LOG_HIT(clog, "load.error");
         /* the backend is unavailable */
         LOG(ERROR) << "Failed to load accounts, backend unavailable: " << info;
     }
     else {
-        //recordHit("load.unknown");
+        LOG_HIT(clog, "load.unknown");
         throw ML::Exception("status code is not handled");
     }
 }
@@ -543,16 +541,14 @@ MTX::MasterBanker::reactivatePresentAccounts(const RTBKIT::AccountKey & key) {
 
 void
 MTX::MasterBanker::restoreAccount(const RTBKIT::AccountKey & key){
-    //FIXME nemi
-    //Record record(this, "restoreAttempt");
-
+    LOG_HIT(clog, "restoreAttempt");
     std::pair<bool, bool> pAndA = accounts.accountPresentAndActive(key);
     if (pAndA.first && pAndA.second == RTBKIT::Account::CLOSED) {
         accounts.reactivateAccount(key);
-        //recordHit("reactivated");
+        LOG_HIT(clog, "reactivated");
         return;
     } else if (pAndA.first && pAndA.second == RTBKIT::Account::ACTIVE) {
-        //recordHit("alreadyActive");
+        LOG_HIT(clog, "alreadyActive");
         return;
     }
 }

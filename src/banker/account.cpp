@@ -237,18 +237,8 @@ void
 ShadowAccount::
 logBidEvents(const string & accountKey)
 {
-// FIXME nemi : eventRecorder
-//    eventRecorder.recordLevel(attachedBids,
-//                              "banker.accounts." + accountKey + ".attachedBids");
     attachedBids = 0;
-
-//    eventRecorder.recordLevel(detachedBids,
-//                              "banker.accounts." + accountKey + ".detachedBids");
     detachedBids = 0;
-
-//    eventRecorder.recordLevel(commitments.size(),
-//                              "banker.accounts." + accountKey + ".pendingCommitments");
-
     Date now = Date::now();
     lastExpiredCommitments = 0;
     for (auto & it: commitments) {
@@ -257,8 +247,6 @@ logBidEvents(const string & accountKey)
             lastExpiredCommitments++;
         }
     }
-//    eventRecorder.recordLevel(lastExpiredCommitments,
-//                              "banker.accounts." + accountKey + ".expiredCommitments");
 }
 
 std::ostream &
@@ -363,17 +351,6 @@ logBidEvents()
         account.logBidEvents(it.first.toString('.'));
         expired += account.lastExpiredCommitments;
     }
-    //FIXME : nemi eventRecorder
-    /*
-    eventRecorder.recordLevel(attachedBids,
-                              "banker.total.attachedBids");
-    eventRecorder.recordLevel(detachedBids,
-                              "banker.total.detachedBids");
-    eventRecorder.recordLevel(commitments,
-                              "banker.total.pendingCommitments");
-    eventRecorder.recordLevel(expired,
-                              "banker.total.expiredCommitments");
-    */
 }
 
 /*****************************************************************************/

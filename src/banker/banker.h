@@ -7,6 +7,7 @@
 #include <rapidjson/document.h>
 #include <string>
 #include <map>
+#include <carboncxx/carbon_logger.h>
 
 #include "utils/router.h"
 #include "account.h"
@@ -19,7 +20,8 @@ struct MasterBanker{
 
     // constructor
     MasterBanker(struct event_base *base,
-                 std::shared_ptr<Redis::AsyncConnection> redis);
+                 std::shared_ptr<Redis::AsyncConnection> redis,
+                 std::shared_ptr<CarbonLogger> logger);
 
     // destructor
     ~MasterBanker();
@@ -61,6 +63,8 @@ private :
     get_body(struct evbuffer *buf);
 
     struct event_base* base;
+
+    std::shared_ptr<CarbonLogger> clog;
 
     Router router;
 

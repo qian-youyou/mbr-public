@@ -94,8 +94,17 @@ main(int argc, char **argv)
         redis->select(FLAGS_redis_db);
     redis->test();
 
+    /* Start carbon loop in a separate thread */
+    boost::asio::io_service ios;
+    std::vector<std::shared_ptr<CarbonConnection>> cons;
+    cons.push_back(std::make_shared<CarbonConnectionTCP>(
+        FLAGS_carbon_host, FLAGS_carbon_port, ios));
+    clog = std::make_shared<CarbonLogger>(FLAGS_name, cons);
+    clog->init();
+    clog->run_dumping_thread();
+
     /* Create the relay */
-    MTX::MasterBanker banker(base, redis);
+    MTX::MasterBanker banker(base, redis, clog);
     banker.initialize();
 
     /* The callback */
@@ -116,15 +125,6 @@ main(int argc, char **argv)
                                 MTX::MasterBanker::persist, &banker);
     timeval twoSec = {FLAGS_redis_dump_interval, 0};
     event_add(e, &twoSec);
-
-    // Start carbon loop in a separate thread
-    boost::asio::io_service ios;
-    std::vector<std::shared_ptr<CarbonConnection>> cons;
-    cons.push_back(std::make_shared<CarbonConnectionTCP>(
-        FLAGS_carbon_host, FLAGS_carbon_port, ios));
-    clog = std::make_shared<CarbonLogger>(FLAGS_name, cons);
-    clog->init();
-    clog->run_dumping_thread();
 
     LOG(WARNING) << "Listening on " << FLAGS_ip <<
             ":" << FLAGS_http_port << " ...";
