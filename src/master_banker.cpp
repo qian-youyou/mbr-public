@@ -35,6 +35,10 @@
 #include <glog/logging.h>
 #include <rapidjson/document.h>
 
+#include <carboncxx/carbon_logger.h>
+#include <carboncxx/carbon_connection_tcp.h>
+#include <csignal>
+
 // CLI paramters
 DEFINE_int32(http_port, 7001, "Port to listen on with HTTP protocol");
 DEFINE_string(ip, "0.0.0.0", "IP/Hostname to bind to");
@@ -42,11 +46,21 @@ DEFINE_string(redis_uri, "127.0.0.1:6379", "redis host:port");
 DEFINE_int32(redis_db, 0, "Redis DB number");
 DEFINE_int32(redis_dump_interval, 5, "Redis dump interval");
 DEFINE_string(name, "MasterBanker", "Master banker name");
+DEFINE_string(carbon_host, "127.0.0.1", "carbon host");
+DEFINE_int32(carbon_port, 2003, "carbon port");
+
+struct event_base *base;
+std::shared_ptr<CarbonLogger> clog;
+
+void signal_handler(int signal){
+    LOG(WARNING) << "shutting down";
+    clog->stop_dumping_thread();
+    event_base_loopbreak(base);
+}
 
 int
 main(int argc, char **argv)
 {
-    struct event_base *base;
     struct evhttp *http;
     struct evhttp_bound_socket *handle;
 
@@ -95,10 +109,22 @@ main(int argc, char **argv)
     	return 1;
     }
 
+    std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
+
     event* e = event_new(base, -1, EV_TIMEOUT | EV_PERSIST,
                                 MTX::MasterBanker::persist, &banker);
     timeval twoSec = {FLAGS_redis_dump_interval, 0};
     event_add(e, &twoSec);
+
+    // Start carbon loop in a separate thread
+    boost::asio::io_service ios;
+    std::vector<std::shared_ptr<CarbonConnection>> cons;
+    cons.push_back(std::make_shared<CarbonConnectionTCP>(
+        FLAGS_carbon_host, FLAGS_carbon_port, ios));
+    clog = std::make_shared<CarbonLogger>(FLAGS_name, cons);
+    clog->init();
+    clog->run_dumping_thread();
 
     LOG(WARNING) << "Listening on " << FLAGS_ip <<
             ":" << FLAGS_http_port << " ...";
