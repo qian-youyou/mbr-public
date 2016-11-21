@@ -1170,9 +1170,9 @@ public:
 
         std::vector<AccountKey> result;
 
-        for (auto it = accounts.lower_bound(prefix), end = accounts.end();
+        for (auto it = accounts.lower_bound(prefix);
              it != accounts.end() && it->first.hasPrefix(prefix);  ++it) {
-            if (maxDepth == -1 || it->first.size() <= maxDepth)
+            if (maxDepth == -1 || (int)(it->first.size()) <= maxDepth)
                 result.push_back(it->first);
         }
         return result;
@@ -1638,7 +1638,7 @@ public:
 
         std::vector<AccountKey> result;
 
-        for (auto it = accounts.lower_bound(prefix), end = accounts.end();
+        for (auto it = accounts.lower_bound(prefix);
              it != accounts.end() && it->first.hasPrefix(prefix);  ++it) {
             result.push_back(it->first);
         }

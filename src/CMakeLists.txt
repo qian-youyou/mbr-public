@@ -8,6 +8,8 @@ ADD_SUBDIRECTORY(utils)
 ADD_SUBDIRECTORY(jml)
 ADD_SUBDIRECTORY(soa)
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
+
 ADD_EXECUTABLE(master_banker_relay master_banker_relay)
 TARGET_LINK_LIBRARIES( master_banker_relay
                     relay ${GLOG_LIBRARY} ${GFLAGS_LIBRARY} event ${Boost_LIBRARIES})

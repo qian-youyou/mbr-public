@@ -1,6 +1,8 @@
 include_directories(~/local/include)
 link_directories(~/local/lib)
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
+
 ADD_LIBRARY( types SHARED date localdate string id url periodic_utils csiphash)
 
 TARGET_LINK_LIBRARIES( types boost_regex boost_date_time
