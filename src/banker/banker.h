@@ -16,6 +16,34 @@
 
 namespace MTX {
 
+
+struct BankerPersistence {
+
+    enum PersistenceCallbackStatus {
+        SUCCESS,             /* info = "" */
+        PERSISTENCE_ERROR,   /* info = error string */
+        DATA_INCONSISTENCY   /* info = json array of account keys */
+    };
+
+    typedef std::map<std::string, uint64_t> LatencyMap;
+
+    struct Result {
+        PersistenceCallbackStatus status;
+        LatencyMap latencies;
+
+        Result() { }
+        Result(PersistenceCallbackStatus cbStatus) : status(cbStatus) { }
+
+        void recordLatency(const std::string &key, uint64_t latency) {
+            latencies.insert(std::make_pair(key, latency));
+        }
+    };
+
+    /* callback types */
+    typedef std::function<void (const Result& result,
+                                const std::string & info)>  OnSavedCallback;
+};
+
 struct MasterBanker{
 
     // constructor
@@ -47,6 +75,11 @@ private :
     void persist_redis();
 
     void load_redis();
+
+    void save_to_redis(const RTBKIT::Accounts& toSave);
+
+    void on_state_saved(
+        const BankerPersistence::Result& result, const std::string& info);
 
     void on_redis_loaded(
                 std::shared_ptr<RTBKIT::Accounts> accounts,
