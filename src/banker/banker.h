@@ -64,6 +64,9 @@ struct MasterBanker{
     static void
     persist(evutil_socket_t fd, short what, void* args);
 
+    void
+    persist_redis();
+
 private :
 
     struct context{
@@ -71,8 +74,6 @@ private :
     };
 
     void process_request(struct evhttp_request *req);
-
-    void persist_redis();
 
     void load_redis();
 
@@ -102,6 +103,7 @@ private :
     Router router;
 
     RTBKIT::Accounts accounts;
+    RTBKIT::Accounts accounts_to_save;
 
     bool persisting;
 

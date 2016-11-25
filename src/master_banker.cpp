@@ -51,11 +51,13 @@ DEFINE_int32(carbon_port, 2003, "carbon port");
 
 struct event_base *base;
 std::shared_ptr<CarbonLogger> clog;
+std::shared_ptr<MTX::MasterBanker> banker;
 
 void signal_handler(int signal){
     LOG(WARNING) << "shutting down";
-    clog->stop_dumping_thread();
     event_base_loopbreak(base);
+    banker->persist_redis();
+    clog->stop_dumping_thread();
 }
 
 int
@@ -104,11 +106,11 @@ main(int argc, char **argv)
     clog->run_dumping_thread();
 
     /* Create the relay */
-    MTX::MasterBanker banker(base, redis, clog);
-    banker.initialize();
+    banker = std::make_shared<MTX::MasterBanker>(base, redis, clog);
+    banker->initialize();
 
     /* The callback */
-    evhttp_set_gencb(http, banker.request_cb, &banker);
+    evhttp_set_gencb(http, MTX::MasterBanker::request_cb, banker.get());
 
     /* Now we tell the evhttp what port to listen on */
     handle = evhttp_bind_socket_with_handle(http,
@@ -122,7 +124,7 @@ main(int argc, char **argv)
     std::signal(SIGTERM, signal_handler);
 
     event* e = event_new(base, -1, EV_TIMEOUT | EV_PERSIST,
-                                MTX::MasterBanker::persist, &banker);
+                                MTX::MasterBanker::persist, banker.get());
     timeval twoSec = {FLAGS_redis_dump_interval, 0};
     event_add(e, &twoSec);
 

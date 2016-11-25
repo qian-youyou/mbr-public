@@ -426,13 +426,12 @@ void
 MTX::MasterBanker::persist_redis(){
     if(!persisting){
         persisting = true;
-        //copy accounts
-        RTBKIT::Accounts accs = accounts;
+        accounts_to_save = accounts;
         std::thread t(
             [&](){
                 try{
                     DLOGINFO("Persisting to redis");
-                    this->save_to_redis(accs);
+                    this->save_to_redis(this->accounts_to_save);
                 }catch(...){
                     LOG(ERROR) << "unkown error persisting";
                 }
@@ -453,7 +452,6 @@ MTX::MasterBanker::save_to_redis(const RTBKIT::Accounts& toSave){
     // Phase 1: we load all of the keys.  This way we can know what is
     // present and deal with keys that should be zeroed out.  We can also
     // detect if we have a synchronization error and bail out.
-
     const Datacratic::Date begin = Datacratic::Date::now();
     std::vector<std::string> keys;
 
@@ -472,10 +470,10 @@ MTX::MasterBanker::save_to_redis(const RTBKIT::Accounts& toSave){
             fetchCommand.addArg(PREFIX + keyStr);
         };
     toSave.forEachAccount(onAccount);
-
     const Datacratic::Date beforePhase1Time = Datacratic::Date::now();
     auto onPhase1Result = [=] (const Redis::Result & result)
         {
+            DLOGINFO("onPhase1Result");
             BankerPersistence::Result saveResult;
 
             const Datacratic::Date afterPhase1Time = Datacratic::Date::now();
@@ -614,8 +612,11 @@ MTX::MasterBanker::save_to_redis(const RTBKIT::Accounts& toSave){
                          on_state_saved(saveResult, results.error());
                      }
                  };
-
-                 redis->queueMulti(storeCommands, onPhase2Result);
+                 Redis::Results results;
+                 for(auto c : storeCommands){
+                     results.push_back(redis->exec(c));
+                 }
+                 onPhase2Result(results);
             }
             else {
                 saveResult.status = BankerPersistence::SUCCESS;
@@ -636,7 +637,8 @@ MTX::MasterBanker::save_to_redis(const RTBKIT::Accounts& toSave){
         return;
     }
 
-    redis->queue(fetchCommand, onPhase1Result);
+    Redis::Result r = redis->exec(fetchCommand);
+    onPhase1Result(r);
 
 }
 
