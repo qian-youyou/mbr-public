@@ -18,6 +18,11 @@
 
 #include <algorithm>
 
+
+DEFINE_int32(mbr_upstream_connections, 15, "Minimum amount of connections for each upstream");
+DEFINE_int32(mbr_requests_recycling, 100000, "Amount of request made by each connection before recycling it");
+
+
 MTX::Relay::Relay(const rapidjson::Document& conf, struct event_base *base){
     LOG(INFO) << "building configuration ...";
 
@@ -50,7 +55,7 @@ MTX::Relay::request_cb(struct evhttp_request *req, void *arg){
 void
 MTX::Relay::relay_cb(struct evhttp_request *req, void *arg){
     relay_placeholder* p = (relay_placeholder*)arg;
-    p->self->process_relay(req, p->original_req, p->connection);
+    p->self->process_relay(req, p->original_req, p->connection, p->conn_pool);
     delete p;
 }
 
@@ -145,27 +150,27 @@ MTX::Relay::single_shoot(
         const std::string& parent_account,
         const std::string& uri){
 
-    std::pair<std::string, unsigned short> banker_uri;
-    banker_uri = get_relay_uri(parent_account);
-    if(!banker_uri.first.size()){
-        evhttp_send_reply(req, 500, "Error", NULL);
-        return;
-    }
+    MTX::HttpConnectionPool & banker_conn_pool = get_relay_conn_pool(parent_account);
 
     // get the body
     struct evbuffer *buf = evhttp_request_get_input_buffer(req);
     std::string body = get_body(buf);
-    DLOGINFO("redirecting : " << banker_uri.first
-                        << ":" << banker_uri.second);
-    // create the connection
-    struct evhttp_connection* conn =
-        evhttp_connection_base_new(base, NULL,
-            banker_uri.first.c_str(), banker_uri.second);
+    DLOGINFO("redirecting : " << banker_conn_pool.get_host()
+                        << ":" << banker_conn_pool.get_port());
+
+    // Get a connection from the pool
+    struct evhttp_connection* conn = banker_conn_pool.get_connection();
+
+    if(conn == NULL){
+        evhttp_send_reply(req, 500, "Error", NULL);
+        return;
+    }
 
     relay_placeholder* holder = new relay_placeholder;
     holder->self = this;
     holder->original_req = req;
     holder->connection = conn;
+    holder->conn_pool = &banker_conn_pool;
     // create the relay request
     struct evhttp_request *relay_req =
         evhttp_request_new(relay_cb, holder);
@@ -174,6 +179,7 @@ MTX::Relay::single_shoot(
     DLOGINFO("setting headers : ");
     struct evkeyval *header;
     struct evkeyvalq *headers = evhttp_request_get_input_headers(req);
+    banker_conn_pool.set_connection_header(relay_req, conn);
     for (header = headers->tqh_first; header;
         header = header->next.tqe_next){
         evhttp_add_header(
@@ -245,7 +251,8 @@ void
 MTX::Relay::process_relay(
         evhttp_request *relay_req,
         evhttp_request *original_req,
-        evhttp_connection *relay_conn){
+        evhttp_connection *relay_conn,
+		MTX::HttpConnectionPool * conn_pool){
     if(relay_req){
         //copy the relayed request body into the original body
         struct evbuffer* buf =
@@ -267,7 +274,8 @@ MTX::Relay::process_relay(
             NULL);
     }
 
-    evhttp_connection_free(relay_conn);
+    // return the connection to the pool
+    conn_pool->return_connection(relay_conn);
 }
 
 bool
@@ -370,8 +378,29 @@ MTX::Relay::get_parent_account(
     return parent;
 }
 
-std::pair<std::string, unsigned short>
-MTX::Relay::get_relay_uri(const std::string& parent){
+unsigned int
+MTX::Relay::get_shard(unsigned int hash)
+{
+    return hash % shards.size();
+}
+
+MTX::HttpConnectionPool &
+MTX::Relay::get_connection_pool(const std::string & host, int port, unsigned int hash)
+{
+	unsigned int shard_slot = get_shard(hash);
+    auto it = bankers_conn_by_shards.find(shard_slot);
+    if ( it == bankers_conn_by_shards.end()){
+    	MTX::HttpConnectionPool con_pool(this->base, host, port);
+    	con_pool.set_requests_before_recycling(FLAGS_mbr_requests_recycling);
+    	con_pool.set_upstream_connections(FLAGS_mbr_upstream_connections);
+    	bankers_conn_by_shards.insert(std::make_pair(shard_slot, con_pool));
+    	return bankers_conn_by_shards.at(shard_slot);
+    }
+    return it->second;
+}
+
+MTX::HttpConnectionPool &
+MTX::Relay::get_relay_conn_pool(const std::string& parent){
 
     DLOGINFO("parent account : " << parent);
     unsigned int hash = SDBMHash(parent);
@@ -379,9 +408,12 @@ MTX::Relay::get_relay_uri(const std::string& parent){
 
     std::pair<std::string, unsigned short> banker_ep =
         get_banker_uri(hash);
-    DLOGINFO("shard uri : " <<
-        banker_ep.first << ":" << banker_ep.second);
-    return banker_ep;
+    DLOGINFO("shard uri : " << banker_ep.first << ":" << banker_ep.second);
+
+    MTX::HttpConnectionPool & conn = get_connection_pool(banker_ep.first,
+    		banker_ep.second, hash);
+
+    return conn;
 }
 
 std::string
