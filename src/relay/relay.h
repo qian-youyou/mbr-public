@@ -7,6 +7,9 @@
 #include <rapidjson/document.h>
 #include <string>
 #include <map>
+#include <gflags/gflags.h>
+
+#include "utils/http_connection_pool.h"
 
 namespace MTX {
 
@@ -28,6 +31,7 @@ private :
         Relay* self;
         evhttp_request* original_req;
         evhttp_connection* connection;
+        MTX::HttpConnectionPool * conn_pool;
     };
 
     struct multiple_relay_placeholder{
@@ -42,7 +46,8 @@ private :
 
     void process_relay(evhttp_request *relay_req,
                        evhttp_request *original_req,
-                       evhttp_connection *relay_conn);
+                       evhttp_connection *relay_conn,
+					   MTX::HttpConnectionPool * conn_pool);
 
     bool process_multiple_relay(evhttp_request *relay_req,
                                 multiple_relay_placeholder* holder);
@@ -67,8 +72,8 @@ private :
                        const std::string& cmdtype,
                        std::map<std::string, std::string>& qs_map);
 
-    std::pair<std::string, unsigned short>
-    get_relay_uri(const std::string& parent);
+    MTX::HttpConnectionPool&
+    get_relay_conn_pool(const std::string& parent);
 
     // callback for the http relay response
     static void
@@ -93,10 +98,17 @@ private :
 
     std::string add_replies(const std::vector<std::string>& bodies);
 
+    unsigned int get_shard(unsigned int hash);
+
+    MTX::HttpConnectionPool & get_connection_pool(const std::string & host,
+    		                                      int port, unsigned int hash);
+
     typedef std::map<int, std::pair<std::string, unsigned short>> shard_map;
+    std::map<int, HttpConnectionPool> bankers_conn_by_shards;
     shard_map shards;
 
     struct event_base* base;
+
 };
 
 }
