@@ -78,6 +78,7 @@ void MTX::MasterBanker::initialize(){
         }
         RTBKIT::AccountType t = this->rest_decode(acc_type);
         this->reactivatePresentAccounts(key);
+        LOG_HIT(clog, "setBalance");
         return this->accounts.setBalance(key, newBalance, t).toJson().toString();
     };
 
@@ -114,6 +115,7 @@ void MTX::MasterBanker::initialize(){
         RTBKIT::Amount a("USD/1M", v["USD/1M"].asInt());
         RTBKIT::CurrencyPool newBudget(a);
         reactivatePresentAccounts(key);
+        LOG_HIT(clog, "setBudget");
         return accounts.setBudget(key, newBudget).toJson().toString();
     };
 
