@@ -67,19 +67,15 @@ void MTX::MasterBanker::initialize(){
         RTBKIT::Amount a("USD/1M", v["USD/1M"].asInt());
         RTBKIT::CurrencyPool newBalance(a);
         
-        std::string acc_type;
         std::map<std::string, std::string>::const_iterator it;
-        if((it = qs.find("accountType")) != qs.end())
-            acc_type = it->second;
-        if(!acc_type.size()){
-            std::ostringstream msg;
-            msg << "qs parameters required are accountType";
-            throw std::logic_error(this->create_error_msg(msg.str()));
+        RTBKIT::AccountType acc_type = RTBKIT::AccountType::AT_NONE; //default
+        if((it = qs.find("accountType")) != qs.end() and ( it->second.size()>0 )){
+				acc_type = this->rest_decode(it->second);
         }
-        RTBKIT::AccountType t = this->rest_decode(acc_type);
+
         this->reactivatePresentAccounts(key);
         LOG_HIT(clog, "setBalance");
-        return this->accounts.setBalance(key, newBalance, t).toJson().toString();
+        return this->accounts.setBalance(key, newBalance, acc_type).toJson().toString();
     };
 
     Router::request_async_action shadow = [&](
