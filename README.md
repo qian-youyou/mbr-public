@@ -1,18 +1,19 @@
 # Master Banker Relay
 
-The Master Banker Relay (MBR) is a relay/sharding process that allow to
+The Master Banker Relay (MBR) is a relay/sharding process that allows to
 have more than one [RTBKit](http://www.rtbkit.org) Master Banker (MB) running
 at the same time.
 
 ## Building
 
-**Depencies**
+**Dependencies**
 
 * Ubuntu 12.04 / Ubuntu 14.04
 * cmake (Tested with 2.8.15)
 * gflags (latest) <https://github.com/gflags/gflags>
 * glog v0.3.3 <https://github.com/google/glog>
 * libevent2 <http://libevent.org/>
+* carboncxx <https://github.com/pablin87/carboncxx>
 * boost 1.52 or higher
 
 
@@ -25,7 +26,7 @@ $ mkdir build
 $ cd build
 ```
 
-If you want to use a specific boost version (ie the one installed by RTBKit's
+If you want to use a specific boost version (i.e. the one installed by RTBKit's
 platform deps set) or if CMake has trouble finding it, set the following environment
 variables before running CMake.
 
@@ -55,9 +56,9 @@ mbr/build $ make
 
 ## Configuring the MBR and the MBs
 
-For the sake of clarity will set up the MBs (MB1 and MB2) and a MBR. You can then
+For the sake of clarity we will set up two MBs (MB1 and MB2) and one MBR. You can then
 extend the example to whatever number of MBs and MBRs. This example also assumes
-that there are no accounst created.
+that there are no accounts created.
 
 * MBR will listen to HTTP requests on port 7000
 * MB1 will listen to HTTP requests on port 9985 using redis DB 0
@@ -78,7 +79,7 @@ MB1.bootstrap.json
 }
 
 ``` 
-Here we have set that the banker-uri is 127.0.0.1:7000 wich is the address
+Here we have set that the banker-uri is 127.0.0.1:7000 which is the address
 for the MBR and we've set 9985 as the HTTP listen port for MB1.
 
 MB2.bootstrap.json
@@ -94,10 +95,10 @@ MB2.bootstrap.json
     }
 }
 ```
-Here we have set that the banker-uri is 127.0.0.1:7000 wich is the address
+Here we have set that the banker-uri is 127.0.0.1:7000 which is the address
 for the MBR and we've set 9984 as the HTTP listen port for MB2.
 
-This way all the PALs and Routers will shoot the MBR when synching all the
+This way all the PALs and Routers will shoot the MBR when syncing all the
 slave accounts.
 
 **2**. Start the PAL/s and Router/s adding the following parameters :
@@ -126,12 +127,12 @@ First we need to create the config file for the MBR. Create a *config.json* file
     {"shard":1, "endpoint":"127.0.0.1:9984"}
 ]
 ```
-Here whe are declaring that shard 0 is MB1 and that shard 1 is MB2
+Here we are declaring that shard 0 is MB1 and that shard 1 is MB2
 
 ```
 src/master_banker_relay --logtostderr=1 --relay_config=config.json --http_port=7000
 ```
-Start MBR and log to stderr, in order to get all de CLI flags (there are plenty for
+Start MBR and log to stderr, in order to get all the CLI flags (there are plenty for
 logging config) use --help.
 
 **6**. You are all set now. Every call that modifies the state of any account must be done
@@ -158,7 +159,7 @@ $ curl http://localhost:7000/v1/accounts/account_hello/budget -d '{ "USD/1M": 12
 $ curl http://localhost:7000/v1/accounts/account_bla/budget -d '{ "USD/1M": 123456789 }'
 ```
 
-**3**. It's always a good idea wo use wireshark/tcpdump to check that the relaying is done
+**3**. It's always a good idea to use wireshark/tcpdump to check that the relaying is done
 correctly
 
 ## Supported endpoints
@@ -197,7 +198,7 @@ Not supported: NS
 The code includes a sharding script for existing accounts. This is what you need to use in case
 you are either :
 
-* Moving from an MB signleton to a mutliple MB scheme using the MBR
+* Moving from an MB signleton to a multiple MB scheme using the MBR
 * Adding more MB instances
 
 The [sharding](https://github.com/Motrixi/mbr-public/blob/develop/scripts/shard.py) script 
@@ -242,7 +243,7 @@ do a dry run or --delete_from if you want to clean up the DBs set using *-f*.
 python shard.py --from_redis 127.0.0.1:6379:0 --to_redis 127.0.0.1:6379:1:0 127.0.0.1:6379:2:1 --dry_run
 ```
 This will take all accounts and take redis 127.0.0.1:6379 DB 1 as shard 0 and 127.0.0.1:6379 DB 2 
-as shard 1 (check the format at the help of the the command). One we are sure that it works we 
+as shard 1 (check the format at the help of the the command). Once we are sure that it works we 
 actually run it :
 ```
 python shard.py --from_redis 127.0.0.1:6379:0 --to_redis 127.0.0.1:6379:1:0 127.0.0.1:6379:2:1
